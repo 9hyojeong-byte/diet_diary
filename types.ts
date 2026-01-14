@@ -1,0 +1,43 @@
+
+export enum MealType {
+  BREAKFAST = '아침',
+  LUNCH = '점심',
+  SNACK = '간식',
+  DINNER = '저녁'
+}
+
+export interface Ingredient {
+  uuid: string;
+  name: string;
+  base_amount: number;
+  kcal: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  sugar: number;
+  fiber: number;
+}
+
+export interface MealRecord {
+  uuid: string;
+  type: MealType;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  ingredient_uuid: string;
+  ingredient_name?: string; // Derived field
+  amount: number;
+  kcal: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  sugar: number;
+  fiber: number;
+  pending?: boolean; // For optimistic UI
+}
+
+export interface DailySummary {
+  kcal: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+}

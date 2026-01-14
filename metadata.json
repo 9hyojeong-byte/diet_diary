@@ -1,0 +1,5 @@
+{
+  "name": "Hyojung's Smart Diet",
+  "description": "A PWA diet management app using Google Sheets as a database and Gemini for personalized nutritional advice.",
+  "requestFramePermissions": []
+}
