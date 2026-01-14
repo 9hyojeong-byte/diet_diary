@@ -3,12 +3,12 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyojung's Smart Diet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>효정님의 스마트 식단</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4F46E5">
-    <link rel="apple-touch-icon" href="https://picsum.photos/192">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3426/3426647.png">
 <script type="importmap">
 {
   "imports": {
@@ -19,8 +19,16 @@
   }
 }
 </script>
+<style>
+  body { 
+    overscroll-behavior-y: contain; /* PWA에서 당겨서 새로고침 방지 */
+  }
+  #root { min-height: 100vh; }
+</style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
     <div id="root"></div>
+    <!-- Vercel 등 호스팅 환경에서 React 앱을 실행하기 위한 진입점 스크립트입니다. -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
