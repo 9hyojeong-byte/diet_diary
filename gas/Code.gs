@@ -1,12 +1,10 @@
 
 function doGet(e) {
   const action = e.parameter.action;
-  
   if (action === 'getData') {
     return ContentService.createTextOutput(JSON.stringify(getAllData()))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  
   return ContentService.createTextOutput('Hello GAS Backend');
 }
 
@@ -17,64 +15,40 @@ function doPost(e) {
   
   if (action === 'saveMeal') {
     saveMeal(data);
-    return ContentService.createTextOutput(JSON.stringify({success: true}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
+  } else if (action === 'updateMeal') {
+    updateMeal(data);
+    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
+  } else if (action === 'deleteMeal') {
+    deleteMeal(data.uuid);
+    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
   } else if (action === 'saveIngredient') {
     saveIngredient(data);
-    return ContentService.createTextOutput(JSON.stringify({success: true}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 function getSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let ingredientsSheet = ss.getSheetByName('Ingredients');
-  let mealsSheet = ss.getSheetByName('Meals');
-  
-  if (!ingredientsSheet) {
-    ingredientsSheet = ss.insertSheet('Ingredients');
-    ingredientsSheet.appendRow(['uuid', 'name', 'base_amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
-  }
-  
-  if (!mealsSheet) {
-    mealsSheet = ss.insertSheet('Meals');
-    mealsSheet.appendRow(['uuid', 'type', 'date', 'time', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
-  }
-  
+  let ingredientsSheet = ss.getSheetByName('Ingredients') || ss.insertSheet('Ingredients');
+  let mealsSheet = ss.getSheetByName('Meals') || ss.insertSheet('Meals');
   return { ingredientsSheet, mealsSheet };
 }
 
 function getAllData() {
   const { ingredientsSheet, mealsSheet } = getSheets();
-  
-  // getDisplayValues()는 시트에 보이는 '텍스트' 그대로를 가져옵니다. (1899년 날짜 변환 방지)
   const ingData = ingredientsSheet.getDataRange().getDisplayValues();
   const mealData = mealsSheet.getDataRange().getDisplayValues();
-  
-  const ingredients = dataToJson(ingData);
-  const meals = dataToJson(mealData);
-  
-  return { ingredients, meals };
+  return { ingredients: dataToJson(ingData), meals: dataToJson(mealData) };
 }
 
-/**
- * 시트 데이터를 JSON 객체 배열로 변환합니다.
- * 모든 값을 문자열로 처리하되, 앞뒤 공백을 제거합니다.
- */
 function dataToJson(data) {
   if (data.length <= 1) return [];
-  
-  // 헤더 정리: 공백 제거 및 소문자화
   const headers = data[0].map(h => String(h).trim().toLowerCase());
-  const rows = data.slice(1);
-
-  return rows.map(row => {
+  return data.slice(1).map(row => {
     const obj = {};
     headers.forEach((header, i) => {
-      let val = row[i];
-      
-      // getDisplayValues()로 가져온 값은 이미 텍스트이므로 trim()만 수행
-      obj[header] = (val !== null && val !== undefined) ? String(val).trim() : "";
+      obj[header] = row[i] ? String(row[i]).trim() : "";
     });
     return obj;
   });
@@ -82,33 +56,35 @@ function dataToJson(data) {
 
 function saveMeal(meal) {
   const { mealsSheet } = getSheets();
-  mealsSheet.appendRow([
-    meal.uuid,
-    meal.type,
-    meal.date,
-    meal.time,
-    meal.ingredient_uuid,
-    meal.amount,
-    meal.kcal,
-    meal.carbs,
-    meal.protein,
-    meal.fat,
-    meal.sugar,
-    meal.fiber
-  ]);
+  mealsSheet.appendRow([meal.uuid, meal.type, meal.date, meal.time, meal.ingredient_uuid, meal.amount, meal.kcal, meal.carbs, meal.protein, meal.fat, meal.sugar, meal.fiber]);
+}
+
+function updateMeal(meal) {
+  const { mealsSheet } = getSheets();
+  const data = mealsSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == meal.uuid) {
+      const row = i + 1;
+      mealsSheet.getRange(row, 1, 1, 12).setValues([[
+        meal.uuid, meal.type, meal.date, meal.time, meal.ingredient_uuid, meal.amount, meal.kcal, meal.carbs, meal.protein, meal.fat, meal.sugar, meal.fiber
+      ]]);
+      break;
+    }
+  }
+}
+
+function deleteMeal(uuid) {
+  const { mealsSheet } = getSheets();
+  const data = mealsSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == uuid) {
+      mealsSheet.deleteRow(i + 1);
+      break;
+    }
+  }
 }
 
 function saveIngredient(ing) {
   const { ingredientsSheet } = getSheets();
-  ingredientsSheet.appendRow([
-    ing.uuid,
-    ing.name,
-    ing.base_amount,
-    ing.kcal,
-    ing.carbs,
-    ing.protein,
-    ing.fat,
-    ing.sugar,
-    ing.fiber
-  ]);
+  ingredientsSheet.appendRow([ing.uuid, ing.name, ing.base_amount, ing.kcal, ing.carbs, ing.protein, ing.fat, ing.sugar, ing.fiber]);
 }

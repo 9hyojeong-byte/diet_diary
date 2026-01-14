@@ -2,7 +2,7 @@
 import { MealRecord, Ingredient } from '../types';
 
 // IMPORTANT: Replace this with your actual deployed GAS Web App URL
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwccJ7-LOmYW_OQw58TJqT3k-X0SfWPv13xCD_qaBfSF9ZvV4IL-xGU6YXA7ZBYlups/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx8ZnVyYbV5W6UWxNBhrd33s1VUs0HSAtvu89-0WiHlu_fGPwqaGnWBk39yBDsmSr9r/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[] }> {
   try {
@@ -16,19 +16,10 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     }
     
     const data = await response.json();
-    console.log("Data fetched from GAS:", data);
     return data;
   } catch (error) {
-    console.error("Failed to fetch from GAS. Check URL or CORS settings.", error);
-    // Fallback to empty/mock data
-    return {
-      meals: [],
-      ingredients: [
-        { uuid: '1', name: '닭가슴살', base_amount: 100, kcal: 110, carbs: 0, protein: 23, fat: 1.2, sugar: 0, fiber: 0 },
-        { uuid: '2', name: '현미밥', base_amount: 210, kcal: 320, carbs: 70, protein: 7, fat: 1, sugar: 0, fiber: 2 },
-        { uuid: '3', name: '사과', base_amount: 150, kcal: 80, carbs: 20, protein: 0.5, fat: 0.3, sugar: 15, fiber: 4 }
-      ]
-    };
+    console.error("Failed to fetch from GAS", error);
+    return { meals: [], ingredients: [] };
   }
 }
 
@@ -42,6 +33,34 @@ export async function saveMealToGAS(meal: MealRecord): Promise<boolean> {
     return response.ok;
   } catch (e) {
     console.error("Save meal failed", e);
+    return false;
+  }
+}
+
+export async function updateMealInGAS(meal: MealRecord): Promise<boolean> {
+  try {
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      body: JSON.stringify({ action: 'updateMeal', data: meal }),
+    });
+    return response.ok;
+  } catch (e) {
+    console.error("Update meal failed", e);
+    return false;
+  }
+}
+
+export async function deleteMealFromGAS(uuid: string): Promise<boolean> {
+  try {
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      body: JSON.stringify({ action: 'deleteMeal', data: { uuid } }),
+    });
+    return response.ok;
+  } catch (e) {
+    console.error("Delete meal failed", e);
     return false;
   }
 }

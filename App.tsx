@@ -6,10 +6,9 @@ import DailySummaryView from './components/DailySummary';
 import MealSection from './components/MealSection';
 import MealInputForm from './components/MealInputForm';
 import AIAdviceModal from './components/AIAdviceModal';
-import { fetchInitialData, saveMealToGAS, saveIngredientToGAS } from './services/gasService';
+import { fetchInitialData, saveMealToGAS, saveIngredientToGAS, updateMealInGAS, deleteMealFromGAS } from './services/gasService';
 
 const App: React.FC = () => {
-  // 한국 시간 기준으로 오늘 날짜 (YYYY-MM-DD) 가져오기
   const getKSTDate = () => {
     const now = new Date();
     const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
@@ -22,9 +21,9 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
+  const [editingMeal, setEditingMeal] = useState<MealRecord | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
 
-  // Initial Load
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -56,26 +55,43 @@ const App: React.FC = () => {
 
   const handleAddMeal = useCallback((type: MealType) => {
     setPrefilledType(type);
+    setEditingMeal(null);
     setIsInputOpen(true);
   }, []);
 
-  const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
-    const optimisticMeal = { ...newMeal, pending: true };
-    setMeals(prev => [...prev, optimisticMeal]);
-    
-    if (newIngredient) {
-      setIngredients(prev => [...prev, newIngredient]);
-      saveIngredientToGAS(newIngredient).catch(err => console.error("Sync ingredient failed", err));
-    }
+  const handleEditMeal = useCallback((meal: MealRecord) => {
+    setEditingMeal(meal);
+    setPrefilledType(meal.type);
+    setIsInputOpen(true);
+  }, []);
 
-    try {
+  const onSaveMeal = useCallback(async (newMeal: MealRecord) => {
+    const isUpdate = !!editingMeal;
+    
+    if (isUpdate) {
+      setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...newMeal, pending: true } : m));
+      const success = await updateMealInGAS(newMeal);
+      if (success) setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...m, pending: false } : m));
+    } else {
+      setMeals(prev => [...prev, { ...newMeal, pending: true }]);
       const success = await saveMealToGAS(newMeal);
-      if (success) {
-        setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...m, pending: false } : m));
-      }
-    } catch (error) {
-      console.error("Sync meal failed", error);
+      if (success) setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...m, pending: false } : m));
     }
+  }, [editingMeal]);
+
+  const onSaveIngredient = useCallback(async (newIngredient: Ingredient) => {
+    setIngredients(prev => [...prev, newIngredient]);
+    try {
+      await saveIngredientToGAS(newIngredient);
+    } catch (error) {
+      console.error("Failed to sync ingredient", error);
+    }
+  }, []);
+
+  const onDeleteMeal = useCallback(async (uuid: string) => {
+    if (!window.confirm("정말 이 식단 기록을 삭제하시겠습니까?")) return;
+    setMeals(prev => prev.filter(m => m.uuid !== uuid));
+    await deleteMealFromGAS(uuid);
   }, []);
 
   if (isLoading) {
@@ -91,17 +107,12 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50">
-      <header className="bg-indigo-600 text-white p-4 sticky top-0 z-10 shadow-md">
+      <header className="bg-indigo-600 text-white p-4 sticky top-0 z-20 shadow-md">
         <h1 className="text-xl font-bold">효정님의 식단 일기</h1>
       </header>
 
       <main className="p-4 space-y-6">
-        <Calendar 
-          selectedDate={selectedDate} 
-          onSelectDate={setSelectedDate} 
-          meals={meals}
-        />
-        
+        <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} />
         <DailySummaryView summary={summary} selectedDate={selectedDate} />
 
         <div className="space-y-4">
@@ -112,6 +123,7 @@ const App: React.FC = () => {
               meals={filteredMeals.filter(m => m.type === type)} 
               ingredients={ingredients}
               onAdd={() => handleAddMeal(type)}
+              onEdit={handleEditMeal}
             />
           ))}
         </div>
@@ -127,11 +139,14 @@ const App: React.FC = () => {
       {isInputOpen && (
         <MealInputForm 
           isOpen={isInputOpen}
-          onClose={() => setIsInputOpen(false)}
+          onClose={() => { setIsInputOpen(false); setEditingMeal(null); }}
           selectedDate={selectedDate}
           prefilledType={prefilledType}
+          editingMeal={editingMeal}
           ingredients={ingredients}
           onSave={onSaveMeal}
+          onSaveIngredient={onSaveIngredient}
+          onDelete={onDeleteMeal}
         />
       )}
 
