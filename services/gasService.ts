@@ -1,8 +1,7 @@
 
 import { MealRecord, Ingredient } from '../types';
 
-// IMPORTANT: Replace this with your actual deployed GAS Web App URL
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx8ZnVyYbV5W6UWxNBhrd33s1VUs0HSAtvu89-0WiHlu_fGPwqaGnWBk39yBDsmSr9r/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzoxqDxL-uKDSUw85Pmljoeu6uz3w7phylvT9nVypxJGDDpgF3M7yBfOrIZrFrR73V3/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[] }> {
   try {
@@ -16,7 +15,14 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     }
     
     const data = await response.json();
-    return data;
+    
+    // 데이터 형변환: is_bookmarked를 Boolean으로 변환
+    const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
+      ...ing,
+      is_bookmarked: ing.is_bookmarked === 'true' || ing.is_bookmarked === true
+    }));
+
+    return { ...data, ingredients: sanitizedIngredients };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
     return { meals: [], ingredients: [] };
@@ -37,34 +43,6 @@ export async function saveMealToGAS(meal: MealRecord): Promise<boolean> {
   }
 }
 
-export async function updateMealInGAS(meal: MealRecord): Promise<boolean> {
-  try {
-    const response = await fetch(GAS_WEB_APP_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      body: JSON.stringify({ action: 'updateMeal', data: meal }),
-    });
-    return response.ok;
-  } catch (e) {
-    console.error("Update meal failed", e);
-    return false;
-  }
-}
-
-export async function deleteMealFromGAS(uuid: string): Promise<boolean> {
-  try {
-    const response = await fetch(GAS_WEB_APP_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      body: JSON.stringify({ action: 'deleteMeal', data: { uuid } }),
-    });
-    return response.ok;
-  } catch (e) {
-    console.error("Delete meal failed", e);
-    return false;
-  }
-}
-
 export async function saveIngredientToGAS(ingredient: Ingredient): Promise<boolean> {
   try {
     const response = await fetch(GAS_WEB_APP_URL, {
@@ -75,6 +53,23 @@ export async function saveIngredientToGAS(ingredient: Ingredient): Promise<boole
     return response.ok;
   } catch (e) {
     console.error("Save ingredient failed", e);
+    return false;
+  }
+}
+
+export async function updateIngredientBookmark(uuid: string, isBookmarked: boolean): Promise<boolean> {
+  try {
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      body: JSON.stringify({ 
+        action: 'updateBookmark', 
+        data: { uuid, is_bookmarked: isBookmarked } 
+      }),
+    });
+    return response.ok;
+  } catch (e) {
+    console.error("Update bookmark failed", e);
     return false;
   }
 }

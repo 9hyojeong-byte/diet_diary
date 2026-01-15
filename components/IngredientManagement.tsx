@@ -1,0 +1,142 @@
+
+import React, { useState, useMemo } from 'react';
+import { Ingredient } from '../types';
+
+interface Props {
+  ingredients: Ingredient[];
+  onToggleBookmark: (uuid: string) => void;
+  onAddIngredient: (ing: Ingredient) => void;
+}
+
+const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, onAddIngredient }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  // 정렬 및 필터링: 북마크 상단 고정 + 가나다순
+  const sortedIngredients = useMemo(() => {
+    return [...ingredients]
+      .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => {
+        if (a.is_bookmarked && !b.is_bookmarked) return -1;
+        if (!a.is_bookmarked && b.is_bookmarked) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [ingredients, searchTerm]);
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-black text-gray-800">식재료 관리</h2>
+        <button 
+          onClick={() => setIsAdding(true)}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 flex items-center space-x-2"
+        >
+          <span>+ 등록</span>
+        </button>
+      </div>
+
+      <div className="relative">
+        <input 
+          type="text" 
+          placeholder="식재료 이름 검색..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-white p-4 pr-12 rounded-2xl shadow-sm border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+        />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 pb-24">
+        {sortedIngredients.length === 0 ? (
+          <div className="py-20 text-center text-gray-400 italic">
+            검색 결과가 없습니다.
+          </div>
+        ) : (
+          sortedIngredients.map(ing => (
+            <div key={ing.uuid} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex justify-between items-center group">
+              <div className="flex items-center space-x-4">
+                <button 
+                  onClick={() => onToggleBookmark(ing.uuid)}
+                  className={`p-2 rounded-full transition-all ${ing.is_bookmarked ? 'bg-amber-50 text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                </button>
+                <div>
+                  <h4 className="font-bold text-gray-800">{ing.name}</h4>
+                  <p className="text-xs text-gray-400">기준: {ing.base_amount}g / {ing.kcal}kcal</p>
+                </div>
+              </div>
+              <div className="text-right flex flex-col items-end">
+                <div className="flex space-x-2 text-[10px] font-bold text-gray-400 uppercase">
+                  <span className="text-indigo-600">P {ing.protein}g</span>
+                  <span>C {ing.carbs}g</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {isAdding && (
+        <AddIngredientModal onClose={() => setIsAdding(false)} onAdd={onAddIngredient} />
+      )}
+    </div>
+  );
+};
+
+const AddIngredientModal: React.FC<{ onClose: () => void, onAdd: (ing: Ingredient) => void }> = ({ onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    name: '', base: '', kcal: '', carbs: '', protein: '', fat: ''
+  });
+
+  const handleSave = () => {
+    if (!formData.name || !formData.kcal) return;
+    onAdd({
+      uuid: crypto.randomUUID(),
+      name: formData.name,
+      base_amount: parseFloat(formData.base),
+      kcal: parseFloat(formData.kcal),
+      carbs: parseFloat(formData.carbs || '0'),
+      protein: parseFloat(formData.protein || '0'),
+      fat: parseFloat(formData.fat || '0'),
+      sugar: 0,
+      fiber: 0,
+      is_bookmarked: false
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+        <div className="p-6 bg-indigo-600 text-white">
+          <h3 className="text-xl font-bold">신규 식재료 등록</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          <input 
+            placeholder="식재료 이름" 
+            value={formData.name} 
+            onChange={e => setFormData({...formData, name: e.target.value})}
+            className="w-full p-3 bg-gray-50 rounded-xl border focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <input placeholder="기준양(g)" value={formData.base} onChange={e => setFormData({...formData, base: e.target.value})} className="p-3 bg-gray-50 rounded-xl border text-sm" />
+            <input placeholder="칼로리" value={formData.kcal} onChange={e => setFormData({...formData, kcal: e.target.value})} className="p-3 bg-gray-50 rounded-xl border text-sm" />
+            <input placeholder="탄수화물" value={formData.carbs} onChange={e => setFormData({...formData, carbs: e.target.value})} className="p-3 bg-gray-50 rounded-xl border text-sm" />
+            <input placeholder="단백질" value={formData.protein} onChange={e => setFormData({...formData, protein: e.target.value})} className="p-3 bg-gray-50 rounded-xl border text-sm" />
+          </div>
+          <div className="flex space-x-3 pt-4">
+            <button onClick={onClose} className="flex-1 py-3 text-gray-400 font-bold border rounded-xl">취소</button>
+            <button onClick={handleSave} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform">저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IngredientManagement;

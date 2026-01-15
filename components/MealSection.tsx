@@ -7,16 +7,26 @@ interface Props {
   meals: MealRecord[];
   ingredients: Ingredient[];
   onAdd: () => void;
-  onEdit: (meal: MealRecord) => void;
 }
 
-const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit }) => {
+const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd }) => {
+  /**
+   * 식재료 UUID를 통해 이름을 찾습니다.
+   * 데이터 타입이 다르거나 공백이 있을 경우를 대비해 엄격하게 처리합니다.
+   */
   const getIngredientName = (uuid: any) => {
     if (!uuid) return '식재료 정보 없음';
-    const found = ingredients.find(i => String(i.uuid).trim() === String(uuid).trim());
+    if (!ingredients || ingredients.length === 0) return '로딩 중...';
+    
+    const targetUuid = String(uuid).trim();
+    const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
+    
     return found ? found.name : '알 수 없는 식재료';
   };
 
+  /**
+   * 현재 섹션의 단백질 총합을 계산합니다.
+   */
   const totalProtein = useMemo(() => {
     return meals.reduce((sum, meal) => sum + (Number(meal.protein) || 0), 0);
   }, [meals]);
@@ -56,11 +66,7 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit 
           </div>
         ) : (
           meals.map(meal => (
-            <div 
-              key={meal.uuid} 
-              onClick={() => onEdit(meal)}
-              className={`bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 cursor-pointer active:scale-[0.98] transition-transform ${meal.pending ? 'opacity-50 grayscale border-gray-300' : 'border-indigo-500'}`}
-            >
+            <div key={meal.uuid} className={`bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 ${meal.pending ? 'opacity-50 grayscale border-gray-300' : 'border-indigo-500'}`}>
               <div>
                 <p className="font-bold text-sm text-gray-800">{getIngredientName(meal.ingredient_uuid)}</p>
                 <p className="text-xs text-gray-500">{meal.amount}g • {meal.time}</p>

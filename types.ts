@@ -16,6 +16,7 @@ export interface Ingredient {
   fat: number;
   sugar: number;
   fiber: number;
+  is_bookmarked?: boolean; // 즐겨찾기 여부
 }
 
 export interface MealRecord {

@@ -15,23 +15,37 @@ function doPost(e) {
   
   if (action === 'saveMeal') {
     saveMeal(data);
-    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
-  } else if (action === 'updateMeal') {
-    updateMeal(data);
-    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
-  } else if (action === 'deleteMeal') {
-    deleteMeal(data.uuid);
-    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
   } else if (action === 'saveIngredient') {
     saveIngredient(data);
-    return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
+  } else if (action === 'updateBookmark') {
+    updateBookmark(data.uuid, data.is_bookmarked);
   }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true}))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function getSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let ingredientsSheet = ss.getSheetByName('Ingredients') || ss.insertSheet('Ingredients');
-  let mealsSheet = ss.getSheetByName('Meals') || ss.insertSheet('Meals');
+  let ingredientsSheet = ss.getSheetByName('Ingredients');
+  let mealsSheet = ss.getSheetByName('Meals');
+  
+  if (!ingredientsSheet) {
+    ingredientsSheet = ss.insertSheet('Ingredients');
+    ingredientsSheet.appendRow(['uuid', 'name', 'base_amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber', 'is_bookmarked']);
+  } else {
+    // 컬럼 보강 (기존 데이터 있을 시 대응)
+    const headers = ingredientsSheet.getRange(1, 1, 1, ingredientsSheet.getLastColumn()).getValues()[0];
+    if (headers.indexOf('is_bookmarked') === -1) {
+      ingredientsSheet.getRange(1, headers.length + 1).setValue('is_bookmarked');
+    }
+  }
+  
+  if (!mealsSheet) {
+    mealsSheet = ss.insertSheet('Meals');
+    mealsSheet.appendRow(['uuid', 'type', 'date', 'time', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
+  }
+  
   return { ingredientsSheet, mealsSheet };
 }
 
@@ -39,16 +53,21 @@ function getAllData() {
   const { ingredientsSheet, mealsSheet } = getSheets();
   const ingData = ingredientsSheet.getDataRange().getDisplayValues();
   const mealData = mealsSheet.getDataRange().getDisplayValues();
-  return { ingredients: dataToJson(ingData), meals: dataToJson(mealData) };
+  return { 
+    ingredients: dataToJson(ingData), 
+    meals: dataToJson(mealData) 
+  };
 }
 
 function dataToJson(data) {
   if (data.length <= 1) return [];
   const headers = data[0].map(h => String(h).trim().toLowerCase());
-  return data.slice(1).map(row => {
+  const rows = data.slice(1);
+  return rows.map(row => {
     const obj = {};
     headers.forEach((header, i) => {
-      obj[header] = row[i] ? String(row[i]).trim() : "";
+      let val = row[i];
+      obj[header] = (val !== null && val !== undefined) ? String(val).trim() : "";
     });
     return obj;
   });
@@ -59,32 +78,22 @@ function saveMeal(meal) {
   mealsSheet.appendRow([meal.uuid, meal.type, meal.date, meal.time, meal.ingredient_uuid, meal.amount, meal.kcal, meal.carbs, meal.protein, meal.fat, meal.sugar, meal.fiber]);
 }
 
-function updateMeal(meal) {
-  const { mealsSheet } = getSheets();
-  const data = mealsSheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == meal.uuid) {
-      const row = i + 1;
-      mealsSheet.getRange(row, 1, 1, 12).setValues([[
-        meal.uuid, meal.type, meal.date, meal.time, meal.ingredient_uuid, meal.amount, meal.kcal, meal.carbs, meal.protein, meal.fat, meal.sugar, meal.fiber
-      ]]);
-      break;
-    }
-  }
-}
-
-function deleteMeal(uuid) {
-  const { mealsSheet } = getSheets();
-  const data = mealsSheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == uuid) {
-      mealsSheet.deleteRow(i + 1);
-      break;
-    }
-  }
-}
-
 function saveIngredient(ing) {
   const { ingredientsSheet } = getSheets();
-  ingredientsSheet.appendRow([ing.uuid, ing.name, ing.base_amount, ing.kcal, ing.carbs, ing.protein, ing.fat, ing.sugar, ing.fiber]);
+  ingredientsSheet.appendRow([ing.uuid, ing.name, ing.base_amount, ing.kcal, ing.carbs, ing.protein, ing.fat, ing.sugar, ing.fiber, ing.is_bookmarked || false]);
+}
+
+function updateBookmark(uuid, isBookmarked) {
+  const { ingredientsSheet } = getSheets();
+  const data = ingredientsSheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const uuidIndex = headers.indexOf('uuid');
+  const bookmarkIndex = headers.indexOf('is_bookmarked');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][uuidIndex]) === String(uuid)) {
+      ingredientsSheet.getRange(i + 1, bookmarkIndex + 1).setValue(isBookmarked);
+      break;
+    }
+  }
 }
