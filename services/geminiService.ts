@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * 효정님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
+ * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
   /**
@@ -16,10 +16,7 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
     apiKey = (window as any).process?.env?.API_KEY;
   }
 
-  if (!apiKey || apiKey === "undefined") {
-    console.error("Gemini API Key is missing even after runtime check.");
-    return "API 키를 인식하지 못했습니다. Vercel 설정에서 [VITE_API_KEY]를 다시 확인하고, 수정 후 'Redeploy' (기존 빌드 캐시 무시)를 진행해 주세요.";
-  }
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
 쿠쿠님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
