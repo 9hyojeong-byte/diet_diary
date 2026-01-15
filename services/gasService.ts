@@ -18,21 +18,26 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     
     const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
       ...ing,
-      is_bookmarked: ing.is_bookmarked === 'true' || ing.is_bookmarked === true,
-      base_amount: Number(ing.base_amount),
-      kcal: Number(ing.kcal),
-      carbs: Number(ing.carbs),
-      protein: Number(ing.protein),
-      fat: Number(ing.fat)
+      // Google Sheets의 getDisplayValues()는 "TRUE" 또는 "FALSE" 문자열을 반환할 수 있으므로 대소문자 무시 처리
+      is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
+      base_amount: Number(ing.base_amount) || 100,
+      kcal: Number(ing.kcal) || 0,
+      carbs: Number(ing.carbs) || 0,
+      protein: Number(ing.protein) || 0,
+      fat: Number(ing.fat) || 0,
+      sugar: Number(ing.sugar) || 0,
+      fiber: Number(ing.fiber) || 0
     }));
 
     const sanitizedMeals = (data.meals || []).map((meal: any) => ({
       ...meal,
-      amount: Number(meal.amount),
-      kcal: Number(meal.kcal),
-      carbs: Number(meal.carbs),
-      protein: Number(meal.protein),
-      fat: Number(meal.fat)
+      amount: Number(meal.amount) || 0,
+      kcal: Number(meal.kcal) || 0,
+      carbs: Number(meal.carbs) || 0,
+      protein: Number(meal.protein) || 0,
+      fat: Number(meal.fat) || 0,
+      sugar: Number(meal.sugar) || 0,
+      fiber: Number(meal.fiber) || 0
     }));
 
     return { meals: sanitizedMeals, ingredients: sanitizedIngredients };
