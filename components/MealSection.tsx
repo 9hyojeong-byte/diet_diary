@@ -91,25 +91,29 @@ const SwipeableMealCard: React.FC<{
   const bgPlannedRef = useRef<HTMLDivElement>(null);
   
   const startX = useRef(0);
-  const currentX = useRef(0);
+  const currentDiff = useRef(0);
   const isDragging = useRef(false);
-  const threshold = 100;
+  const threshold = 80; // 스와이프 발동 기준
 
-  const updatePosition = (x: number) => {
+  const updateStyles = (diff: number) => {
     if (!cardRef.current) return;
-    const dragX = x * 0.6; // 저항 계수
+    const dragX = diff * 0.6; // 저항 계수
+    
+    // 카드 위치 직접 이동 (translate3d로 하드웨어 가속)
     cardRef.current.style.transform = `translate3d(${dragX}px, 0, 0)`;
     
-    // 배경 아이콘 피드백
+    // 실제 섭취(Actual) 피드백 (오른쪽 드래그)
     if (bgActualRef.current) {
-      const opacity = Math.min(dragX / 80, 1);
-      bgActualRef.current.style.opacity = dragX > 5 ? opacity.toString() : '0';
-      bgActualRef.current.style.transform = `scale(${0.8 + opacity * 0.2})`;
+      const opacity = Math.min(Math.max(dragX / 60, 0), 1);
+      bgActualRef.current.style.opacity = opacity.toString();
+      bgActualRef.current.style.transform = `scale(${0.9 + opacity * 0.1})`;
     }
+    
+    // 예정 식단(Planned) 피드백 (왼쪽 드래그)
     if (bgPlannedRef.current) {
-      const opacity = Math.min(-dragX / 80, 1);
-      bgPlannedRef.current.style.opacity = dragX < -5 ? opacity.toString() : '0';
-      bgPlannedRef.current.style.transform = `scale(${0.8 + opacity * 0.2})`;
+      const opacity = Math.min(Math.max(-dragX / 60, 0), 1);
+      bgPlannedRef.current.style.opacity = opacity.toString();
+      bgPlannedRef.current.style.transform = `scale(${0.9 + opacity * 0.1})`;
     }
   };
 
@@ -118,17 +122,17 @@ const SwipeableMealCard: React.FC<{
     startX.current = e.touches[0].clientX;
     isDragging.current = true;
     if (cardRef.current) {
-      cardRef.current.style.transition = 'none';
+      cardRef.current.style.transition = 'none'; // 드래그 중에는 애니메이션 끔
     }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!isDragging.current) return;
-    currentX.current = e.touches[0].clientX - startX.current;
+    currentDiff.current = e.touches[0].clientX - startX.current;
     
-    // 애니메이션 프레임에 맞춰 위치 업데이트
+    // 성능을 위해 rAF(requestAnimationFrame) 사용
     requestAnimationFrame(() => {
-      updatePosition(currentX.current);
+      updateStyles(currentDiff.current);
     });
   };
 
@@ -136,44 +140,45 @@ const SwipeableMealCard: React.FC<{
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    const finalX = currentX.current * 0.6;
+    const dragX = currentDiff.current * 0.6;
     
+    // 원복 애니메이션 설정
     if (cardRef.current) {
-      cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+      cardRef.current.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
       cardRef.current.style.transform = `translate3d(0, 0, 0)`;
     }
 
-    if (finalX > threshold) {
+    // 배경 피드백 페이드 아웃
+    if (bgActualRef.current) bgActualRef.current.style.opacity = '0';
+    if (bgPlannedRef.current) bgPlannedRef.current.style.opacity = '0';
+
+    // 임계값 확인 후 상태 변경 실행
+    if (dragX > threshold) {
       onSetStatus(meal.uuid, MealStatus.ACTUAL);
-    } else if (finalX < -threshold) {
+    } else if (dragX < -threshold) {
       onSetStatus(meal.uuid, MealStatus.PLANNED);
     }
 
-    currentX.current = 0;
-    // 배경 초기화
-    setTimeout(() => {
-        if (bgActualRef.current) bgActualRef.current.style.opacity = '0';
-        if (bgPlannedRef.current) bgPlannedRef.current.style.opacity = '0';
-    }, 100);
+    currentDiff.current = 0;
   };
 
   const isPlanned = meal.status === MealStatus.PLANNED;
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-gray-100 touch-pan-y">
-      {/* Background Actions (Persistent Refs) */}
-      <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
-        <div ref={bgActualRef} className="opacity-0 transition-none flex items-center space-x-2">
-          <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-100 text-white">
+      {/* Background Actions Layer */}
+      <div className="absolute inset-0 flex items-center justify-between px-6 z-0 pointer-events-none">
+        <div ref={bgActualRef} className="opacity-0 flex items-center space-x-2 transition-opacity duration-200">
+          <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center shadow-lg text-white">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
              </svg>
           </div>
-          <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter"></span>
+          <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter">Actual</span>
         </div>
-        <div ref={bgPlannedRef} className="opacity-0 transition-none flex items-center space-x-2">
-          <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter"></span>
-          <div className="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center shadow-lg shadow-gray-200 text-white">
+        <div ref={bgPlannedRef} className="opacity-0 flex items-center space-x-2 transition-opacity duration-200">
+          <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Planned</span>
+          <div className="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center shadow-lg text-white">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <rect x="3" y="3" width="18" height="18" rx="4" strokeWidth="2" />
              </svg>
@@ -181,7 +186,7 @@ const SwipeableMealCard: React.FC<{
         </div>
       </div>
 
-      {/* Main Card (Direct Manipulation via cardRef) */}
+      {/* Main Content Card Layer */}
       <div 
         ref={cardRef}
         onTouchStart={onTouchStart}
@@ -203,9 +208,11 @@ const SwipeableMealCard: React.FC<{
           <p className="text-xs text-gray-400 font-medium">{meal.amount}g • {meal.time}</p>
         </div>
         <div className="text-right">
-          <p className={`font-black ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>{Math.round(meal.kcal)} <span className="text-[9px] font-bold opacity-50 ml-0.5">kcal</span></p>
+          <p className={`font-black tracking-tight ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>
+            {Math.round(meal.kcal)} <span className="text-[9px] font-bold opacity-50 ml-0.5">kcal</span>
+          </p>
           <div className="flex space-x-2 text-[10px] text-gray-400 justify-end font-bold">
-            <span className={!isPlanned ? 'text-emerald-500/70' : ''}>P {Math.round(meal.protein || 0)}g</span>
+            <span className={!isPlanned ? 'text-emerald-500/80' : ''}>P {Math.round(meal.protein || 0)}g</span>
             <span>C {Math.round(meal.carbs || 0)}g</span>
           </div>
         </div>

@@ -121,7 +121,7 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
 const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => void, onSave: (ing: Ingredient) => void, onDelete: (uuid: string) => void }> = ({ target, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState({
     name: target?.name || '', 
-    base: target?.base_amount?.toString() || '100', 
+    base: target?.base_amount?.toString() || '1', 
     kcal: target?.kcal?.toString() || '', 
     carbs: target?.carbs?.toString() || '', 
     protein: target?.protein?.toString() || '', 
