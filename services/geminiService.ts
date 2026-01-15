@@ -1,27 +1,41 @@
+
 import { GoogleGenAI } from "@google/genai";
+
+/**
+ * 런타임에 유효한 API 키를 가져옵니다. 
+ * 번들러가 process.env.API_KEY를 "undefined" 문자열로 치환한 경우를 대비합니다.
+ */
+function getSafeApiKey(): string | undefined {
+  // 번들러의 정적 분석을 피하기 위해 대괄호 표기법 사용 고려 가능
+  const env = (process as any).env || {};
+  const key = env['API_KEY'];
+  
+  if (key && key !== "undefined" && key !== "null") {
+    return key;
+  }
+  
+  // 전역 객체에서 재확인
+  const g = globalThis as any;
+  const fallbackKey = g.API_KEY || (g.process?.env?.API_KEY);
+  
+  if (fallbackKey && fallbackKey !== "undefined" && fallbackKey !== "null") {
+    return fallbackKey;
+  }
+  
+  return undefined;
+}
 
 /**
  * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
-  /**
-   * 가이드라인에 따라 process.env.API_KEY를 사용합니다.
-   * Vite 빌드 도구가 이 코드를 "undefined" 문자열로 치환하는 것을 방지하기 위해 
-   * 런타임 체크 로직을 강화합니다.
-   */
-  let apiKey = process.env.API_KEY;
-
-  // 만약 빌드 타임에 "undefined" 문자열로 박혔거나 실제 undefined라면 window 객체에서 재확인
-  if (!apiKey || apiKey === "undefined") {
-    apiKey = (window as any).process?.env?.API_KEY;
+  const apiKey = getSafeApiKey();
+  
+  if (!apiKey) {
+    return "API 키가 설정되지 않았습니다. 환경 변수를 확인해 주세요.";
   }
 
-  if (!apiKey || apiKey === "undefined") {
-    console.error("Gemini API Key is missing even after runtime check.");
-    return "API 키를 인식하지 못했습니다. Vercel 설정에서 [VITE_API_KEY]를 다시 확인하고, 수정 후 'Redeploy' (기존 빌드 캐시 무시)를 진행해 주세요.";
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
 쿠쿠님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
@@ -36,7 +50,6 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
       contents: prompt,
     });
 
-    // Extracting Text Output from GenerateContentResponse using .text property (not a method).
     const text = response.text;
     
     if (!text) {
@@ -46,11 +59,6 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
     return text;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    
-    if (error.message?.includes("API key not valid")) {
-      return "설정된 API 키가 유효하지 않습니다. 키 값을 다시 확인해 주세요.";
-    }
-    
-    return "AI 분석 중 오류가 발생했습니다. (네트워크 또는 서버 이슈)";
+    return "AI 분석 중 오류가 발생했습니다. API 키나 네트워크 상태를 확인해 주세요.";
   }
 }
