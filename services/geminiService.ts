@@ -5,16 +5,20 @@ import { GoogleGenAI } from "@google/genai";
  * 효정님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
-  // 가이드라인에 따라 process.env.API_KEY를 직접 사용합니다.
-  // index.tsx에서 수행한 브리징 덕분에 브라우저에서도 이 값을 읽을 수 있습니다.
-  const apiKey = process.env.API_KEY;
+  // 가이드라인에 따라 process.env.API_KEY를 사용합니다.
+  // Vite 환경에서는 빌드 시점에 대체되거나, index.tsx의 브릿지를 통해 window.process.env에서 가져옵니다.
+  let apiKey = process.env.API_KEY;
 
+  // 만약 process.env.API_KEY가 정의되지 않았다면 window 객체에서 직접 확인 (런타임 브릿지)
   if (!apiKey || apiKey === "undefined") {
-    console.error("Critical: API_KEY is missing in the browser environment.");
-    return "API 키를 찾을 수 없습니다. Vercel에서 VITE_API_KEY와 API_KEY를 모두 설정한 후 반드시 'Redeploy'를 해주세요.";
+    apiKey = (window as any).process?.env?.API_KEY;
   }
 
-  // 매 호출 시 최신 키를 사용하도록 인스턴스 생성
+  if (!apiKey || apiKey === "undefined") {
+    console.error("Gemini API Key is missing.");
+    return "API 키를 인식하지 못했습니다. Vercel에서 VITE_API_KEY를 설정한 후 [Redeploy] 시 'Clear Cache' 옵션이 있다면 체크하고 다시 진행해 주세요.";
+  }
+
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
 
@@ -37,9 +41,6 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
     return response.text;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error.message?.includes("API key not valid")) {
-      return "설정된 API 키가 유효하지 않습니다. Google AI Studio에서 키를 새로 발급받아 Vercel에 업데이트해 주세요.";
-    }
-    return "AI 분석 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+    return "AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
   }
 }
