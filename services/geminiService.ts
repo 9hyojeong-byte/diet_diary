@@ -1,11 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
+ * 효정님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
-  // Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  /**
+   * 가이드라인에 따라 process.env.API_KEY를 사용합니다.
+   * Vite 빌드 도구가 이 코드를 "undefined" 문자열로 치환하는 것을 방지하기 위해 
+   * 런타임 체크 로직을 강화합니다.
+   */
+  let apiKey = process.env.API_KEY;
+
+  // 만약 빌드 타임에 "undefined" 문자열로 박혔거나 실제 undefined라면 window 객체에서 재확인
+  if (!apiKey || apiKey === "undefined") {
+    apiKey = (window as any).process?.env?.API_KEY;
+  }
+
+  if (!apiKey || apiKey === "undefined") {
+    console.error("Gemini API Key is missing even after runtime check.");
+    return "API 키를 인식하지 못했습니다. Vercel 설정에서 [VITE_API_KEY]를 다시 확인하고, 수정 후 'Redeploy' (기존 빌드 캐시 무시)를 진행해 주세요.";
+  }
   
   const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
 쿠쿠님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
