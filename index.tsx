@@ -10,16 +10,15 @@ import App from './App';
 (function setupRuntimeBridge() {
   const g = globalThis as any;
   
-  // 1. process.env 구조 강제 생성
+  // 1. 전역 구조 보장
   if (!g.process) g.process = { env: {} };
   if (!g.process.env) g.process.env = {};
   
-  // 유효성 체크 함수: undefined/null 문자열이 박히는 경우를 철저히 거름
   const isTrulyValid = (v: any) => 
     v && typeof v === 'string' && v !== 'undefined' && v !== 'null' && v.trim() !== '';
 
-  // 2. 소스 탐색 (우선순위: window 직접 주입 > import.meta.env > process.env)
-  // 대괄호 표기법['...']을 사용해야 번들러의 정적 분석(Static Analysis)을 피할 수 있습니다.
+  // 2. 소스 탐색 (우선순위: window > import.meta.env > process.env)
+  // 대괄호['...']를 사용해야 빌드 도구가 소스 코드를 강제로 바꾸지 않습니다.
   let targetKey = 
     g['API_KEY'] || 
     g['VITE_API_KEY'] || 
@@ -27,23 +26,25 @@ import App from './App';
 
   if (!isTrulyValid(targetKey)) {
     // @ts-ignore (Vite 환경)
-    const vEnv = import.meta.env || {};
+    const vEnv = (import.meta as any).env || {};
     targetKey = vEnv['API_KEY'] || vEnv['VITE_API_KEY'];
   }
 
   if (!isTrulyValid(targetKey)) {
-    // 마지막으로 process.env['API_KEY'] 확인 (정적 치환되지 않은 동적 접근)
-    targetKey = g.process.env['API_KEY'];
+    // 빌드 타임에 치환되지 않도록 동적으로 접근
+    targetKey = g.process.env['API_KEY'] || g.process.env['VITE_API_KEY'];
   }
 
-  // 3. 발견된 키를 모든 전역 위치에 강제 고정
+  // 3. 발견된 키를 모든 전역 위치에 고정 (특히 SDK가 참조할 만한 곳)
   if (isTrulyValid(targetKey)) {
     g.process.env['API_KEY'] = targetKey;
-    g.process.env.API_KEY = targetKey; // 정적 참조 대비
-    g['API_KEY'] = targetKey;          // window 대비
-    console.log("✅ Runtime Bridge: API_KEY successfully established.");
+    g.process.env.API_KEY = targetKey; 
+    g['API_KEY'] = targetKey;
+    // 간혹 SDK가 내부적으로 참조할 수 있는 다른 경로도 보장
+    if (!g.window.process) g.window.process = g.process;
+    console.log("✅ Runtime Bridge: API_KEY established via dynamic lookup.");
   } else {
-    console.error("❌ Runtime Bridge: Critical! API_KEY not found in any scope.");
+    console.error("❌ Runtime Bridge: API_KEY not found. Check Vercel Environment Variables.");
   }
 })();
 

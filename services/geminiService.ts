@@ -2,27 +2,24 @@
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * 런타임에 유효한 API 키를 철저히 검증하여 가져옵니다.
- * "undefined" 문자열이 박혀있는 경우를 걸러내고 전역 객체에서 재탐색합니다.
+ * 빌드 도구의 정적 분석(Static Analysis)을 완전히 회피하여 실제 API 키를 가져옵니다.
+ * 이 함수는 process.env.API_KEY 라는 문구를 직접 사용하지 않습니다.
  */
-function getVerifiedApiKey(): string | undefined {
+function getDynamicApiKey(): string | undefined {
   const g = globalThis as any;
   const isTrulyValid = (v: any) => 
     v && typeof v === 'string' && v !== 'undefined' && v !== 'null' && v.trim() !== '';
 
-  // 1. process.env['API_KEY'] 동적 접근 (가장 확실함)
-  const dynamicEnvKey = g.process?.env?.['API_KEY'];
-  if (isTrulyValid(dynamicEnvKey)) return dynamicEnvKey;
+  // 1. 전역 객체에 직접 박힌 값 확인 (index.tsx의 브릿지가 설정한 값)
+  if (isTrulyValid(g['API_KEY'])) return g['API_KEY'];
+  
+  // 2. process.env를 대괄호로 접근하여 빌드 타임 치환 방지
+  const env = g.process?.env || {};
+  if (isTrulyValid(env['API_KEY'])) return env['API_KEY'];
+  if (isTrulyValid(env['VITE_API_KEY'])) return env['VITE_API_KEY'];
 
-  // 2. window 객체 직접 확인
-  const windowKey = g['API_KEY'] || (g.window && g.window['API_KEY']);
-  if (isTrulyValid(windowKey)) return windowKey;
-
-  // 3. (Fallback) 번들러에 의해 치환되었을 수도 있는 일반적인 접근
-  try {
-    const staticKey = process.env.API_KEY;
-    if (isTrulyValid(staticKey)) return staticKey;
-  } catch (e) {}
+  // 3. window 객체 확인
+  if (g.window && isTrulyValid(g.window['API_KEY'])) return g.window['API_KEY'];
 
   return undefined;
 }
@@ -31,15 +28,15 @@ function getVerifiedApiKey(): string | undefined {
  * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
-  const apiKey = getVerifiedApiKey();
+  const apiKey = getDynamicApiKey();
   
   if (!apiKey) {
-    console.error("GeminiService: No API Key available.");
-    return "API 키가 설정되지 않았습니다. Vercel 환경 변수에서 API_KEY가 제대로 등록되었는지 확인해 주세요.";
+    console.error("GeminiService: API Key is missing or string 'undefined'.");
+    return "API 키를 찾을 수 없습니다. Vercel 설정에서 API_KEY가 등록되었는지, 혹은 VITE_API_KEY로 등록되었는지 확인해 주세요.";
   }
 
   try {
-    // 가이드라인 준수: new GoogleGenAI({ apiKey })
+    // 런타임에 확보한 apiKey를 직접 주입
     const ai = new GoogleGenAI({ apiKey });
     
     const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
@@ -54,18 +51,9 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
       contents: prompt,
     });
 
-    const text = response.text;
-    
-    if (!text) {
-      return "AI가 답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.";
-    }
-
-    return text;
+    return response.text || "AI가 답변을 생성하지 못했습니다.";
   } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
-    if (error.message?.includes('API_KEY_INVALID')) {
-      return "유효하지 않은 API 키입니다. 키 설정을 다시 확인해 주세요.";
-    }
-    return "AI 분석 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.";
+    return "AI 분석 중 오류가 발생했습니다. 키 유효성이나 네트워크를 확인해 주세요.";
   }
 }
