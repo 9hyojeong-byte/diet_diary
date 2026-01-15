@@ -45,8 +45,15 @@ function getSheets() {
   
   if (!mealsSheet) {
     mealsSheet = ss.insertSheet('Meals');
-    // ingredient_name 컬럼 추가 (기존 Meals 시트가 있다면 수동으로 한 열 추가 필요할 수 있음)
-    mealsSheet.appendRow(['uuid', 'type', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
+    // status 컬럼 포함 헤더 정의
+    mealsSheet.appendRow(['uuid', 'type', 'status', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
+  } else {
+    // 기존 시트에 status 컬럼이 없는 경우 대응 (두 번째 열에 추가)
+    const headers = mealsSheet.getRange(1, 1, 1, mealsSheet.getLastColumn()).getValues()[0];
+    if (headers.indexOf('status') === -1) {
+      mealsSheet.insertColumnAfter(2);
+      mealsSheet.getRange(1, 3).setValue('status');
+    }
   }
   
   return { ingredientsSheet, mealsSheet };
@@ -78,22 +85,27 @@ function dataToJson(data) {
 
 function saveMeal(meal) {
   const { mealsSheet } = getSheets();
-  // ingredient_name 포함하여 저장
-  mealsSheet.appendRow([
-    meal.uuid, 
-    meal.type, 
-    meal.date, 
-    meal.time, 
-    meal.ingredient_name || '', 
-    meal.ingredient_uuid, 
-    meal.amount, 
-    meal.kcal, 
-    meal.carbs, 
-    meal.protein, 
-    meal.fat, 
-    meal.sugar, 
-    meal.fiber
-  ]);
+  const headers = mealsSheet.getRange(1, 1, 1, mealsSheet.getLastColumn()).getValues()[0].map(h => h.trim().toLowerCase());
+  
+  const rowData = headers.map(header => {
+    if (header === 'uuid') return meal.uuid;
+    if (header === 'type') return meal.type;
+    if (header === 'status') return meal.status || 'ACTUAL';
+    if (header === 'date') return meal.date;
+    if (header === 'time') return meal.time;
+    if (header === 'ingredient_name') return meal.ingredient_name || '';
+    if (header === 'ingredient_uuid') return meal.ingredient_uuid;
+    if (header === 'amount') return meal.amount;
+    if (header === 'kcal') return meal.kcal;
+    if (header === 'carbs') return meal.carbs;
+    if (header === 'protein') return meal.protein;
+    if (header === 'fat') return meal.fat;
+    if (header === 'sugar') return meal.sugar;
+    if (header === 'fiber') return meal.fiber;
+    return '';
+  });
+  
+  mealsSheet.appendRow(rowData);
 }
 
 function saveIngredient(ing) {
@@ -110,7 +122,10 @@ function updateRowByUuid(sheetName, uuid, newData) {
   
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][uuidIndex]) === String(uuid)) {
-      const row = headers.map(header => newData[header] !== undefined ? newData[header] : data[i][headers.indexOf(header)]);
+      const row = headers.map(header => {
+        if (newData[header] !== undefined) return newData[header];
+        return data[i][headers.indexOf(header)];
+      });
       sheet.getRange(i + 1, 1, 1, headers.length).setValues([row]);
       break;
     }

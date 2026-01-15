@@ -1,7 +1,7 @@
 
-import { MealRecord, Ingredient } from '../types';
+import { MealRecord, Ingredient, MealStatus } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz9j4qBdGB131uFq1sdgGvbjcdeGQuFSnXRSvQX3SescpIz6bjIbP84Vt4OZU64byih/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwTWuRqdWN-ioZf9q2D7XDm_SWGgtozpkzFNfbBaErwH6MO072K_SakXGLfJB0vKDZe/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[] }> {
   try {
@@ -18,7 +18,6 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     
     const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
       ...ing,
-      // Google Sheets의 getDisplayValues()는 "TRUE" 또는 "FALSE" 문자열을 반환할 수 있으므로 대소문자 무시 처리
       is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
       base_amount: Number(ing.base_amount) || 100,
       kcal: Number(ing.kcal) || 0,
@@ -31,6 +30,7 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
 
     const sanitizedMeals = (data.meals || []).map((meal: any) => ({
       ...meal,
+      status: (meal.status as MealStatus) || MealStatus.ACTUAL,
       amount: Number(meal.amount) || 0,
       kcal: Number(meal.kcal) || 0,
       carbs: Number(meal.carbs) || 0,

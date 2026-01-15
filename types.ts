@@ -6,6 +6,11 @@ export enum MealType {
   DINNER = '저녁'
 }
 
+export enum MealStatus {
+  PLANNED = 'PLANNED',
+  ACTUAL = 'ACTUAL'
+}
+
 export interface Ingredient {
   uuid: string;
   name: string;
@@ -22,6 +27,7 @@ export interface Ingredient {
 export interface MealRecord {
   uuid: string;
   type: MealType;
+  status: MealStatus; // 예정(PLANNED) 또는 실제(ACTUAL)
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   ingredient_uuid: string;
@@ -37,8 +43,16 @@ export interface MealRecord {
 }
 
 export interface DailySummary {
-  kcal: number;
-  carbs: number;
-  protein: number;
-  fat: number;
+  actual: {
+    kcal: number;
+    carbs: number;
+    protein: number;
+    fat: number;
+  };
+  planned: {
+    kcal: number;
+    carbs: number;
+    protein: number;
+    fat: number;
+  };
 }

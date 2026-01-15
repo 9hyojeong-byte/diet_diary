@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MealRecord, Ingredient, MealType } from './types';
+import { MealRecord, Ingredient, MealType, MealStatus } from './types';
 import Calendar from './components/Calendar';
 import DailySummaryView from './components/DailySummary';
 import MealSection from './components/MealSection';
@@ -25,6 +25,12 @@ const App: React.FC = () => {
     const now = new Date();
     const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     return kst.toISOString().split('T')[0];
+  };
+
+  const getKSTTime = () => {
+    const now = new Date();
+    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    return kst.toISOString().split('T')[1].slice(0, 5);
   };
 
   const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats'>('main');
@@ -59,12 +65,25 @@ const App: React.FC = () => {
   }, [meals, selectedDate]);
 
   const summary = useMemo(() => {
-    return filteredMeals.reduce((acc, cur) => ({
+    const initial = { kcal: 0, carbs: 0, protein: 0, fat: 0 };
+    
+    const actual = filteredMeals
+      .filter(m => m.status === MealStatus.ACTUAL)
+      .reduce((acc, cur) => ({
+        kcal: acc.kcal + (Number(cur.kcal) || 0),
+        carbs: acc.carbs + (Number(cur.carbs) || 0),
+        protein: acc.protein + (Number(cur.protein) || 0),
+        fat: acc.fat + (Number(cur.fat) || 0),
+      }), { ...initial });
+
+    const total = filteredMeals.reduce((acc, cur) => ({
       kcal: acc.kcal + (Number(cur.kcal) || 0),
       carbs: acc.carbs + (Number(cur.carbs) || 0),
       protein: acc.protein + (Number(cur.protein) || 0),
       fat: acc.fat + (Number(cur.fat) || 0),
-    }), { kcal: 0, carbs: 0, protein: 0, fat: 0 });
+    }), { ...initial });
+
+    return { actual, planned: total };
   }, [filteredMeals]);
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
@@ -88,6 +107,30 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error("Meal save/update failed", error);
+    }
+  }, [meals]);
+
+  const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
+    const target = meals.find(m => m.uuid === uuid);
+    if (!target || target.status === status) return;
+
+    const updatedMeal: MealRecord = { 
+      ...target, 
+      status,
+      // 실제 섭취로 바꿀 때만 시간을 현재로 갱신
+      time: status === MealStatus.ACTUAL ? getKSTTime() : target.time,
+      pending: true 
+    };
+
+    setMeals(prev => prev.map(m => m.uuid === uuid ? updatedMeal : m));
+
+    try {
+      const success = await updateMealInGAS(updatedMeal);
+      if (success) {
+        setMeals(prev => prev.map(m => m.uuid === uuid ? { ...updatedMeal, pending: false } : m));
+      }
+    } catch (err) {
+      setMeals(prev => prev.map(m => m.uuid === uuid ? { ...target, pending: false } : m));
     }
   }, [meals]);
 
@@ -210,6 +253,7 @@ const App: React.FC = () => {
                     setIsInputOpen(true);
                   }}
                   onDelete={onDeleteMeal}
+                  onSetStatus={handleSetMealStatus}
                 />
               ))}
             </div>
@@ -273,8 +317,8 @@ const App: React.FC = () => {
         <AIAdviceModal 
           isOpen={adviceModalOpen}
           onClose={() => setAdviceModalOpen(false)}
-          currentKcal={summary.kcal}
-          currentProtein={summary.protein}
+          currentKcal={summary.actual.kcal}
+          currentProtein={summary.actual.protein}
         />
       )}
     </div>
