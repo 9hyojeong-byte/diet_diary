@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { MealRecord } from '../types';
 
@@ -74,7 +73,8 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
   };
 
   const perfectDaysCount = useMemo(() => {
-    return Object.values(dailyAggregates).filter(d => {
+    // d의 타입을 명시적으로 지정하여 unknown 타입 에러를 방지합니다.
+    return Object.values(dailyAggregates).filter((d: { kcal: number; protein: number; count: number }) => {
       const isProteinSuccess = d.protein >= TARGET_PROTEIN;
       const isKcalSuccess = 
         d.kcal >= TARGET_KCAL * (1 - KCAL_THRESHOLD) && 

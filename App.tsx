@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType } from './types';
 import Calendar from './components/Calendar';
@@ -140,6 +141,13 @@ const App: React.FC = () => {
     }
   }, [ingredients]);
 
+  const handleOpenQuickInput = () => {
+    setEditMealTarget(null);
+    setPrefilledType(null); // Form 내부의 시간 로직에 맡김
+    setSelectedDate(getKSTDate()); // 입력을 위해 오늘 날짜로 갱신
+    setIsInputOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -226,6 +234,19 @@ const App: React.FC = () => {
           <Statistics meals={meals} />
         )}
       </main>
+
+      {/* Floating Action Button */}
+      {currentView === 'main' && (
+        <button 
+          onClick={handleOpenQuickInput}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 hover:scale-105 transition-all animate-in zoom-in slide-in-from-bottom-10 duration-500"
+          aria-label="식단 추가"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      )}
 
       {isInputOpen && (
         <MealInputForm 

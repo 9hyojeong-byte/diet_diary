@@ -54,11 +54,20 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   useEffect(() => {
     if (!prefilledType && !editTarget) {
       const h = parseInt(time.split(':')[0]);
-      const totalMin = h * 60 + parseInt(time.split(':')[1]);
-      if (totalMin >= 360 && totalMin < 710) setType(MealType.BREAKFAST);
-      else if (totalMin >= 710 && totalMin < 840) setType(MealType.LUNCH);
+      const m = parseInt(time.split(':')[1]);
+      const totalMin = h * 60 + m;
+      
+      /**
+       * 요청된 시간대별 분류 로직:
+       * 06:00 ~ 12:00 (360 ~ 720분) : 아침
+       * 12:00 ~ 14:00 (720 ~ 840분) : 점심
+       * 14:00 ~ 18:00 (840 ~ 1080분): 간식
+       * 18:00 ~ 06:00 (1080 ~ 360분): 저녁
+       */
+      if (totalMin >= 360 && totalMin < 720) setType(MealType.BREAKFAST);
+      else if (totalMin >= 720 && totalMin < 840) setType(MealType.LUNCH);
       else if (totalMin >= 840 && totalMin < 1080) setType(MealType.SNACK);
-      else setType(MealType.DINNER);
+      else setType(MealType.DINNER); // 18:00 이후 ~ 익일 06:00 이전
     }
   }, [time, prefilledType, editTarget]);
 
