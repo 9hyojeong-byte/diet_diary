@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
 
 interface Props {
@@ -86,58 +86,94 @@ const SwipeableMealCard: React.FC<{
   onEdit: (meal: MealRecord) => void;
   onSetStatus: (uuid: string, status: MealStatus) => void;
 }> = ({ meal, displayName, onEdit, onSetStatus }) => {
-  const [offsetX, setOffsetX] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const bgActualRef = useRef<HTMLDivElement>(null);
+  const bgPlannedRef = useRef<HTMLDivElement>(null);
+  
   const startX = useRef(0);
-  const isSwiping = useRef(false);
-  const threshold = 100; // 스와이프 발동 기준
+  const currentX = useRef(0);
+  const isDragging = useRef(false);
+  const threshold = 100;
+
+  const updatePosition = (x: number) => {
+    if (!cardRef.current) return;
+    const dragX = x * 0.6; // 저항 계수
+    cardRef.current.style.transform = `translate3d(${dragX}px, 0, 0)`;
+    
+    // 배경 아이콘 피드백
+    if (bgActualRef.current) {
+      const opacity = Math.min(dragX / 80, 1);
+      bgActualRef.current.style.opacity = dragX > 5 ? opacity.toString() : '0';
+      bgActualRef.current.style.transform = `scale(${0.8 + opacity * 0.2})`;
+    }
+    if (bgPlannedRef.current) {
+      const opacity = Math.min(-dragX / 80, 1);
+      bgPlannedRef.current.style.opacity = dragX < -5 ? opacity.toString() : '0';
+      bgPlannedRef.current.style.transform = `scale(${0.8 + opacity * 0.2})`;
+    }
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (meal.pending) return;
     startX.current = e.touches[0].clientX;
-    isSwiping.current = true;
+    isDragging.current = true;
+    if (cardRef.current) {
+      cardRef.current.style.transition = 'none';
+    }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping.current) return;
-    const currentX = e.touches[0].clientX;
-    const diff = currentX - startX.current;
+    if (!isDragging.current) return;
+    currentX.current = e.touches[0].clientX - startX.current;
     
-    // 저항감 구현
-    setOffsetX(diff * 0.6);
+    // 애니메이션 프레임에 맞춰 위치 업데이트
+    requestAnimationFrame(() => {
+      updatePosition(currentX.current);
+    });
   };
 
   const onTouchEnd = () => {
-    if (!isSwiping.current) return;
-    isSwiping.current = false;
+    if (!isDragging.current) return;
+    isDragging.current = false;
 
-    if (offsetX > threshold) {
-      // 오른쪽 스와이프 -> ACTUAL
+    const finalX = currentX.current * 0.6;
+    
+    if (cardRef.current) {
+      cardRef.current.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+      cardRef.current.style.transform = `translate3d(0, 0, 0)`;
+    }
+
+    if (finalX > threshold) {
       onSetStatus(meal.uuid, MealStatus.ACTUAL);
-    } else if (offsetX < -threshold) {
-      // 왼쪽 스와이프 -> PLANNED
+    } else if (finalX < -threshold) {
       onSetStatus(meal.uuid, MealStatus.PLANNED);
     }
-    
-    setOffsetX(0);
+
+    currentX.current = 0;
+    // 배경 초기화
+    setTimeout(() => {
+        if (bgActualRef.current) bgActualRef.current.style.opacity = '0';
+        if (bgPlannedRef.current) bgPlannedRef.current.style.opacity = '0';
+    }, 100);
   };
 
   const isPlanned = meal.status === MealStatus.PLANNED;
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gray-100 group">
-      {/* Background Actions */}
-      <div className="absolute inset-0 flex items-center justify-between px-6 text-white font-black text-xs uppercase tracking-widest">
-        <div className={`flex items-center space-x-2 transition-opacity ${offsetX > 20 ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <div className="relative overflow-hidden rounded-xl bg-gray-100 touch-pan-y">
+      {/* Background Actions (Persistent Refs) */}
+      <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
+        <div ref={bgActualRef} className="opacity-0 transition-none flex items-center space-x-2">
+          <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-100 text-white">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
              </svg>
           </div>
-          <span className="text-green-600">실제 섭취</span>
+          <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter"></span>
         </div>
-        <div className={`flex items-center space-x-2 transition-opacity ${offsetX < -20 ? 'opacity-100' : 'opacity-0'}`}>
-          <span className="text-gray-500">예정 식단</span>
-          <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center shadow-sm">
+        <div ref={bgPlannedRef} className="opacity-0 transition-none flex items-center space-x-2">
+          <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter"></span>
+          <div className="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center shadow-lg shadow-gray-200 text-white">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <rect x="3" y="3" width="18" height="18" rx="4" strokeWidth="2" />
              </svg>
@@ -145,14 +181,14 @@ const SwipeableMealCard: React.FC<{
         </div>
       </div>
 
-      {/* Main Card */}
+      {/* Main Card (Direct Manipulation via cardRef) */}
       <div 
+        ref={cardRef}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onClick={() => onEdit(meal)}
-        style={{ transform: `translateX(${offsetX}px)` }}
-        className={`relative z-10 flex-1 text-left p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 transition-all duration-200 cursor-pointer ${
+        className={`relative z-10 flex-1 text-left p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 will-change-transform cursor-pointer select-none ${
           meal.pending ? 'opacity-50 grayscale border-gray-300 cursor-wait' : 
           isPlanned ? 'bg-gray-50 border-gray-300 border-dashed' : 'bg-white border-indigo-500 hover:border-indigo-600'
         }`}
@@ -161,15 +197,15 @@ const SwipeableMealCard: React.FC<{
           <div className="flex items-center space-x-2">
             <p className={`font-bold text-sm ${isPlanned ? 'text-gray-400 italic' : 'text-gray-800'}`}>
               {displayName}
-              {isPlanned && <span className="ml-2 text-[10px] bg-gray-200 text-gray-500 px-1.5 rounded-sm font-black not-italic uppercase tracking-tighter">Planned</span>}
+              {isPlanned && <span className="ml-2 text-[9px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-sm font-black not-italic uppercase tracking-tighter">Planned</span>}
             </p>
           </div>
-          <p className="text-xs text-gray-400">{meal.amount}g • {meal.time}</p>
+          <p className="text-xs text-gray-400 font-medium">{meal.amount}g • {meal.time}</p>
         </div>
         <div className="text-right">
-          <p className={`font-black ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>{Math.round(meal.kcal)} <span className="text-[10px] font-bold opacity-50 ml-0.5">kcal</span></p>
-          <div className="flex space-x-2 text-[10px] text-gray-400 justify-end font-medium">
-            <span>P {Math.round(meal.protein || 0)}g</span>
+          <p className={`font-black ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>{Math.round(meal.kcal)} <span className="text-[9px] font-bold opacity-50 ml-0.5">kcal</span></p>
+          <div className="flex space-x-2 text-[10px] text-gray-400 justify-end font-bold">
+            <span className={!isPlanned ? 'text-emerald-500/70' : ''}>P {Math.round(meal.protein || 0)}g</span>
             <span>C {Math.round(meal.carbs || 0)}g</span>
           </div>
         </div>
