@@ -154,7 +154,7 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl">
-      <header className="bg-indigo-600 text-white p-4 sticky top-0 z-10 shadow-lg flex items-center">
+      <header className="bg-indigo-600 text-white p-4 sticky top-0 z-50 shadow-lg flex items-center">
         <button 
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
@@ -164,7 +164,7 @@ const App: React.FC = () => {
           </svg>
         </button>
         <h1 className="ml-2 text-xl font-bold">
-          {currentView === 'main' ? '효정님의 식단 기록' : '식재료 관리'}
+          {currentView === 'main' ? '쿠쿠쿠🥗 식단 기록' : '식재료 관리'}
         </h1>
       </header>
 

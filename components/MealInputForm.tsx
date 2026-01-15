@@ -27,11 +27,11 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
     editTarget ? (ingredients.find(i => i.uuid === editTarget.ingredient_uuid) || null) : null
   );
-  const [amount, setAmount] = useState(editTarget?.amount.toString() || '100');
+  const [amount, setAmount] = useState(editTarget?.amount.toString() || '1');
   
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newBase, setNewBase] = useState('100');
+  const [newBase, setNewBase] = useState('1');
   const [newKcal, setNewKcal] = useState('');
   const [newCarbs, setNewCarbs] = useState('');
   const [newProtein, setNewProtein] = useState('');
@@ -106,7 +106,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     if (keepOpen) {
       setSearchTerm('');
       setSelectedIngredient(null);
-      setAmount('100');
+      setAmount('1');
       setIsAddingNew(false);
       setNewName('');
     } else {

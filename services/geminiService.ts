@@ -24,12 +24,12 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
 
   const ai = new GoogleGenAI({ apiKey });
   
-  const prompt = `당신은 효정님의 다정한 전담 영양사입니다. 
-효정님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
+  const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
+쿠쿠님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
 일일 목표: 1500kcal, 단백질 100g. 
 남은 할당량 내에서 먹어야 하는 단백질의 양과 kcal를 먼저 숫자로 명시하고, 부족한 양이 없다면 부족함 없이 잘 챙겨 섭취했다는 내용의 칭찬 한마디를 해주세요.
 부족한 양이 있다면 남은 할당량 내에서 부족한 단백질을 채울 수 있는 맛있는 메뉴 1가지를 추천하고 응원 한 마디를 해주세요. 
-답변은 한국어로 3문장 이내로 작성하세요.`;
+답변은 다양한 이모지를 사용해서 한국어로 3문장 이내로 작성하세요.`;
 
   try {
     const response = await ai.models.generateContent({

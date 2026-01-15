@@ -30,7 +30,7 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, currentKcal, currentP
         <div className="p-6 bg-gradient-to-r from-indigo-600 to-teal-500 text-white flex justify-between items-center">
           <div>
             <h3 className="font-black text-xl">AI 영양 추천 ✨</h3>
-            <p className="text-xs opacity-80 font-medium">효정님만을 위한 오늘의 한 줄 조언</p>
+            <p className="text-xs opacity-80 font-medium">쿠쿠님만을 위한 오늘의 한 줄 조언</p>
           </div>
           <button onClick={onClose} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
