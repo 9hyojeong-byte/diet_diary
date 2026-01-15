@@ -67,7 +67,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   }, [time, prefilledType, editTarget]);
 
   const bookmarkedIngredients = useMemo(() => {
-    return ingredients.filter(i => i.is_bookmarked).slice(0, 8);
+    return ingredients.filter(i => i.is_bookmarked).slice(0, 12);
   }, [ingredients]);
 
   const filteredIngredients = useMemo(() => {
@@ -176,8 +176,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
-          {/* 실제/예정 스위치 제거됨: 입력 시 기본은 ACTUAL이며 상세 변경은 메인 리스트 스와이프로 유도 */}
-          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">날짜</label>
@@ -205,7 +203,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           </div>
 
           {!isAddingNew && !selectedIngredient ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase">식재료 검색</label>
@@ -215,17 +213,47 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                   <input autoFocus type="text" placeholder="식재료 검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white shadow-sm font-medium" />
                 </div>
               </div>
-              <div className="space-y-2">
-                {filteredIngredients.map(i => (
-                  <button key={i.uuid} onClick={() => { setSelectedIngredient(i); setSearchTerm(''); }} className="w-full text-left p-4 bg-white border border-gray-100 hover:border-indigo-500 rounded-2xl flex justify-between items-center transition-all shadow-sm group">
-                    <div className="flex items-center space-x-3">
-                      {i.is_bookmarked && <span className="text-amber-400">★</span>}
-                      <span className="font-bold text-gray-800">{i.name}</span>
+
+              {/* 검색어 없을 때 즐겨찾기 목록 표시 */}
+              {!searchTerm && bookmarkedIngredients.length > 0 && (
+                <div className="space-y-3 animate-in fade-in duration-500">
+                  <div className="flex items-center space-x-2 px-1">
+                    <span className="text-amber-400 text-xs">★</span>
+                    <label className="text-[10px] font-black text-gray-400 uppercase">자주 먹는 식재료</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {bookmarkedIngredients.map(i => (
+                      <button 
+                        key={i.uuid} 
+                        onClick={() => setSelectedIngredient(i)}
+                        className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-left hover:bg-indigo-100 transition-colors group"
+                      >
+                        <p className="text-xs font-bold text-indigo-900 line-clamp-1">{i.name}</p>
+                        <p className="text-[9px] text-indigo-400 font-medium">{i.kcal}kcal / {i.base_amount}g</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {searchTerm && (
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                  {filteredIngredients.map(i => (
+                    <button key={i.uuid} onClick={() => { setSelectedIngredient(i); setSearchTerm(''); }} className="w-full text-left p-4 bg-white border border-gray-100 hover:border-indigo-500 rounded-2xl flex justify-between items-center transition-all shadow-sm group">
+                      <div className="flex items-center space-x-3">
+                        {i.is_bookmarked && <span className="text-amber-400">★</span>}
+                        <span className="font-bold text-gray-800">{i.name}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">{i.kcal} kcal / {i.base_amount}g</span>
+                    </button>
+                  ))}
+                  {filteredIngredients.length === 0 && (
+                    <div className="text-center py-6 text-xs text-gray-400">
+                      검색 결과가 없습니다.
                     </div>
-                    <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">{i.kcal} kcal / {i.base_amount}g</span>
-                  </button>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : isAddingNew ? (
             <div className="space-y-5 bg-indigo-50/30 p-5 rounded-[32px] border border-indigo-100 animate-in zoom-in duration-300">

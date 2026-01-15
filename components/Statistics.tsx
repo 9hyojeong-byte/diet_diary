@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { MealRecord } from '../types';
+import { MealRecord, MealStatus } from '../types';
 
 interface StatisticsProps {
   meals: MealRecord[];
@@ -19,10 +19,15 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
   // 요일 헤더 (월~일)
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
-  // 일별 데이터 집계
+  // 실제 섭취 데이터만 필터링
+  const actualMeals = useMemo(() => {
+    return meals.filter(m => m.status === MealStatus.ACTUAL);
+  }, [meals]);
+
+  // 일별 데이터 집계 (실제 섭취 기준)
   const dailyAggregates = useMemo(() => {
     const agg: Record<string, { kcal: number; protein: number; count: number }> = {};
-    meals.forEach(m => {
+    actualMeals.forEach(m => {
       const date = m.date.split('T')[0];
       if (!agg[date]) agg[date] = { kcal: 0, protein: 0, count: 0 };
       agg[date].kcal += Number(m.kcal) || 0;
@@ -30,7 +35,7 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
       agg[date].count += 1;
     });
     return agg;
-  }, [meals]);
+  }, [actualMeals]);
 
   // 최근 3개월 월별 데이터 생성
   const monthGrids = useMemo(() => {
@@ -85,12 +90,12 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-10">
       {/* 요약 카드 */}
       <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-[32px] text-white shadow-xl shadow-indigo-100">
-        <h3 className="text-sm font-bold opacity-80 mb-1">나의 달성 기록</h3>
+        <h3 className="text-sm font-bold opacity-80 mb-1">나의 실제 달성 기록</h3>
         <p className="text-4xl font-black mb-4">{perfectDaysCount} <span className="text-xl font-normal opacity-60 italic">Perfect Days</span></p>
         <div className="flex space-x-4 pt-4 border-t border-white/10">
           <div>
-            <p className="text-[10px] opacity-60 font-bold uppercase">총 기록수</p>
-            <p className="text-lg font-bold">{meals.length}회</p>
+            <p className="text-[10px] opacity-60 font-bold uppercase">총 섭취 횟수</p>
+            <p className="text-lg font-bold">{actualMeals.length}회</p>
           </div>
           <div>
             <p className="text-[10px] opacity-60 font-bold uppercase">기록된 일수</p>
@@ -177,11 +182,12 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
 
       {/* 가이드 카드 */}
       <div className="bg-white p-6 rounded-[24px] border border-gray-100 text-xs text-gray-400 leading-relaxed">
-        <p className="font-bold text-gray-800 mb-2">💡 통계 가이드</p>
+        <p className="font-bold text-gray-800 mb-2">💡 통계 가이드 (실제 섭취 기준)</p>
         <ul className="space-y-1 list-disc pl-4">
-          <li><span className="text-emerald-500 font-bold">초록색 점</span>: 단백질 100g 이상 섭취 성공</li>
-          <li><span className="text-indigo-500 font-bold">보라색 점</span>: 1500kcal 기준 ±20% 범위 안착 성공</li>
+          <li><span className="text-emerald-500 font-bold">초록색 점</span>: 실제 단백질 100g 이상 섭취 성공</li>
+          <li><span className="text-indigo-500 font-bold">보라색 점</span>: 실제 1500kcal 기준 ±20% 범위 안착 성공</li>
           <li>날짜를 클릭하면 해당 일의 상세 식단을 볼 수 있습니다.</li>
+          <li className="italic text-indigo-400/80">예정(Planned) 식단은 통계에 포함되지 않습니다.</li>
         </ul>
       </div>
     </div>
