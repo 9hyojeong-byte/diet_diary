@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// 브라우저 환경에서 process.env.API_KEY 참조 시 에러 방지
+// 브라우저 환경에서 process.env 참조 시 발생할 수 있는 런타임 에러를 방지합니다.
 if (typeof (window as any).process === 'undefined') {
   (window as any).process = { env: {} };
 }
@@ -20,11 +20,11 @@ root.render(
   </React.StrictMode>
 );
 
-// Register Service Worker for PWA
+// PWA 서비스 워커 등록
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js').catch(err => {
-      console.log('Service worker registration failed: ', err);
+      console.error('Service worker registration failed: ', err);
     });
   });
 }
