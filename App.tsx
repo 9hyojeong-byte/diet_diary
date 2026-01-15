@@ -8,7 +8,16 @@ import MealInputForm from './components/MealInputForm';
 import AIAdviceModal from './components/AIAdviceModal';
 import Sidebar from './components/Sidebar';
 import IngredientManagement from './components/IngredientManagement';
-import { fetchInitialData, saveMealToGAS, saveIngredientToGAS, updateIngredientBookmark } from './services/gasService';
+import { 
+  fetchInitialData, 
+  saveMealToGAS, 
+  updateMealInGAS, 
+  deleteMealFromGAS,
+  saveIngredientToGAS, 
+  updateIngredientInGAS,
+  deleteIngredientFromGAS,
+  updateIngredientBookmark 
+} from './services/gasService';
 
 const App: React.FC = () => {
   const getKSTDate = () => {
@@ -24,6 +33,7 @@ const App: React.FC = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInputOpen, setIsInputOpen] = useState(false);
+  const [editMealTarget, setEditMealTarget] = useState<MealRecord | null>(null);
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
 
@@ -57,59 +67,93 @@ const App: React.FC = () => {
   }, [filteredMeals]);
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
-    const optimisticMeal = { ...newMeal, pending: true };
-    setMeals(prev => [...prev, optimisticMeal]);
+    const isUpdate = meals.some(m => m.uuid === newMeal.uuid);
+    
+    // UI 우선 업데이트 (Optimistic)
+    if (isUpdate) {
+      setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...newMeal, pending: true } : m));
+    } else {
+      setMeals(prev => [...prev, { ...newMeal, pending: true }]);
+    }
     
     if (newIngredient) {
       setIngredients(prev => [...prev, newIngredient]);
-      saveIngredientToGAS(newIngredient).catch(err => console.error("Sync ingredient failed", err));
+      saveIngredientToGAS(newIngredient);
     }
 
     try {
-      const success = await saveMealToGAS(newMeal);
+      const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
       if (success) {
         setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...m, pending: false } : m));
       }
     } catch (error) {
-      console.error("Sync meal failed", error);
+      console.error("Meal save/update failed", error);
     }
-  }, []);
+  }, [meals]);
+
+  const onDeleteMeal = useCallback(async (uuid: string) => {
+    if (!confirm('기록을 삭제할까요?')) return;
+    const previousMeals = [...meals];
+    setMeals(prev => prev.filter(m => m.uuid !== uuid));
+    
+    try {
+      const success = await deleteMealFromGAS(uuid);
+      if (!success) setMeals(previousMeals);
+    } catch (err) {
+      setMeals(previousMeals);
+    }
+  }, [meals]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     const target = ingredients.find(i => i.uuid === uuid);
     if (!target) return;
-
     const nextState = !target.is_bookmarked;
-    // Optimistic UI Update
     setIngredients(prev => prev.map(i => i.uuid === uuid ? { ...i, is_bookmarked: nextState } : i));
-
     try {
       await updateIngredientBookmark(uuid, nextState);
     } catch (err) {
-      console.error("Bookmark toggle failed", err);
-      // Revert if failed
       setIngredients(prev => prev.map(i => i.uuid === uuid ? { ...i, is_bookmarked: !nextState } : i));
     }
   }, [ingredients]);
 
   const handleAddIngredient = useCallback((ing: Ingredient) => {
     setIngredients(prev => [...prev, ing]);
-    saveIngredientToGAS(ing).catch(err => console.error("Sync ingredient failed", err));
+    saveIngredientToGAS(ing);
   }, []);
+
+  const handleUpdateIngredient = useCallback(async (ing: Ingredient) => {
+    setIngredients(prev => prev.map(i => i.uuid === ing.uuid ? ing : i));
+    try {
+      await updateIngredientInGAS(ing);
+    } catch (err) {
+      console.error("Update ingredient failed", err);
+    }
+  }, []);
+
+  const handleDeleteIngredient = useCallback(async (uuid: string) => {
+    const previous = [...ingredients];
+    setIngredients(prev => prev.filter(i => i.uuid !== uuid));
+    try {
+      const success = await deleteIngredientFromGAS(uuid);
+      if (!success) setIngredients(previous);
+    } catch (err) {
+      setIngredients(previous);
+    }
+  }, [ingredients]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
         <div className="flex flex-col items-center">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-500 font-medium tracking-tight">당신의 완벽한 식단을 준비중이에요</p>
+          <p className="mt-4 text-gray-500 font-medium tracking-tight">당신의 기록을 불러오고 있어요</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50">
+    <div className="max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl">
       <header className="bg-indigo-600 text-white p-4 sticky top-0 z-10 shadow-lg flex items-center">
         <button 
           onClick={() => setIsSidebarOpen(true)}
@@ -150,9 +194,15 @@ const App: React.FC = () => {
                   meals={filteredMeals.filter(m => m.type === type)} 
                   ingredients={ingredients}
                   onAdd={() => {
+                    setEditMealTarget(null);
                     setPrefilledType(type);
                     setIsInputOpen(true);
                   }}
+                  onEdit={(meal) => {
+                    setEditMealTarget(meal);
+                    setIsInputOpen(true);
+                  }}
+                  onDelete={onDeleteMeal}
                 />
               ))}
             </div>
@@ -170,6 +220,8 @@ const App: React.FC = () => {
             ingredients={ingredients}
             onToggleBookmark={handleToggleBookmark}
             onAddIngredient={handleAddIngredient}
+            onUpdateIngredient={handleUpdateIngredient}
+            onDeleteIngredient={handleDeleteIngredient}
           />
         )}
       </main>
@@ -177,11 +229,16 @@ const App: React.FC = () => {
       {isInputOpen && (
         <MealInputForm 
           isOpen={isInputOpen}
-          onClose={() => setIsInputOpen(false)}
+          onClose={() => {
+            setIsInputOpen(false);
+            setEditMealTarget(null);
+          }}
           selectedDate={selectedDate}
           prefilledType={prefilledType}
+          editTarget={editMealTarget}
           ingredients={ingredients}
           onSave={onSaveMeal}
+          onDelete={onDeleteMeal}
         />
       )}
 

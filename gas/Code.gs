@@ -15,8 +15,16 @@ function doPost(e) {
   
   if (action === 'saveMeal') {
     saveMeal(data);
+  } else if (action === 'updateMeal') {
+    updateRowByUuid('Meals', data.uuid, data);
+  } else if (action === 'deleteMeal') {
+    deleteRowByUuid('Meals', data.uuid);
   } else if (action === 'saveIngredient') {
     saveIngredient(data);
+  } else if (action === 'updateIngredient') {
+    updateRowByUuid('Ingredients', data.uuid, data);
+  } else if (action === 'deleteIngredient') {
+    deleteRowByUuid('Ingredients', data.uuid);
   } else if (action === 'updateBookmark') {
     updateBookmark(data.uuid, data.is_bookmarked);
   }
@@ -33,12 +41,6 @@ function getSheets() {
   if (!ingredientsSheet) {
     ingredientsSheet = ss.insertSheet('Ingredients');
     ingredientsSheet.appendRow(['uuid', 'name', 'base_amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber', 'is_bookmarked']);
-  } else {
-    // 컬럼 보강 (기존 데이터 있을 시 대응)
-    const headers = ingredientsSheet.getRange(1, 1, 1, ingredientsSheet.getLastColumn()).getValues()[0];
-    if (headers.indexOf('is_bookmarked') === -1) {
-      ingredientsSheet.getRange(1, headers.length + 1).setValue('is_bookmarked');
-    }
   }
   
   if (!mealsSheet) {
@@ -81,6 +83,37 @@ function saveMeal(meal) {
 function saveIngredient(ing) {
   const { ingredientsSheet } = getSheets();
   ingredientsSheet.appendRow([ing.uuid, ing.name, ing.base_amount, ing.kcal, ing.carbs, ing.protein, ing.fat, ing.sugar, ing.fiber, ing.is_bookmarked || false]);
+}
+
+function updateRowByUuid(sheetName, uuid, newData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const uuidIndex = headers.indexOf('uuid');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][uuidIndex]) === String(uuid)) {
+      const row = headers.map(header => newData[header] !== undefined ? newData[header] : data[i][headers.indexOf(header)]);
+      sheet.getRange(i + 1, 1, 1, headers.length).setValues([row]);
+      break;
+    }
+  }
+}
+
+function deleteRowByUuid(sheetName, uuid) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const uuidIndex = headers.indexOf('uuid');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][uuidIndex]) === String(uuid)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
 }
 
 function updateBookmark(uuid, isBookmarked) {

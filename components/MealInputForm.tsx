@@ -7,23 +7,27 @@ interface Props {
   onClose: () => void;
   selectedDate: string;
   prefilledType: MealType | null;
+  editTarget?: MealRecord | null;
   ingredients: Ingredient[];
   onSave: (meal: MealRecord, ingredient?: Ingredient) => void;
+  onDelete?: (uuid: string) => void;
 }
 
-const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, ingredients, onSave }) => {
+const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, onSave, onDelete }) => {
   const getKSTTime = () => {
     const now = new Date();
     const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     return kst.toISOString().split('T')[1].slice(0, 5);
   };
 
-  const [date, setDate] = useState(selectedDate);
-  const [time, setTime] = useState(getKSTTime());
-  const [type, setType] = useState<MealType>(prefilledType || MealType.BREAKFAST);
+  const [date, setDate] = useState(editTarget?.date || selectedDate);
+  const [time, setTime] = useState(editTarget?.time || getKSTTime());
+  const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
-  const [amount, setAmount] = useState('');
+  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
+    editTarget ? (ingredients.find(i => i.uuid === editTarget.ingredient_uuid) || null) : null
+  );
+  const [amount, setAmount] = useState(editTarget?.amount.toString() || '100');
   
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -34,7 +38,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [newFat, setNewFat] = useState('');
 
   useEffect(() => {
-    if (!prefilledType) {
+    if (!prefilledType && !editTarget) {
       const h = parseInt(time.split(':')[0]);
       const totalMin = h * 60 + parseInt(time.split(':')[1]);
       if (totalMin >= 360 && totalMin < 710) setType(MealType.BREAKFAST);
@@ -42,14 +46,12 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       else if (totalMin >= 840 && totalMin < 1080) setType(MealType.SNACK);
       else setType(MealType.DINNER);
     }
-  }, [time, prefilledType]);
+  }, [time, prefilledType, editTarget]);
 
-  // 자주 쓰는 식재료 (북마크된 것들만)
   const bookmarkedIngredients = useMemo(() => {
     return ingredients.filter(i => i.is_bookmarked).slice(0, 8);
   }, [ingredients]);
 
-  // 검색 결과 (북마크된 것이 위로 오게 정렬)
   const filteredIngredients = useMemo(() => {
     if (!searchTerm) return [];
     return ingredients
@@ -92,7 +94,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     }
     if (!finalIngredient || !preview) return;
     const newMeal: MealRecord = {
-      uuid: crypto.randomUUID(),
+      uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
       date,
       time,
@@ -112,11 +114,18 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     }
   };
 
+  const handleDelete = () => {
+    if (editTarget && onDelete) {
+      onDelete(editTarget.uuid);
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
       <div className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-3xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
         <div className="p-6 border-b flex justify-between items-center bg-white">
-          <h2 className="text-xl font-black">식단 입력</h2>
+          <h2 className="text-xl font-black">{editTarget ? '기록 수정' : '식단 입력'}</h2>
           <button onClick={onClose} className="bg-gray-100 p-2 rounded-full text-gray-400">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -170,7 +179,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                 </div>
               </div>
 
-              {/* 검색어 없을 때 자주 쓰는 식재료 노출 */}
               {!searchTerm && bookmarkedIngredients.length > 0 && (
                 <div className="space-y-2">
                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest ml-1">자주 먹는 식재료 ★</p>
@@ -229,8 +237,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                    <label className="text-[10px] text-gray-400 font-bold ml-1">칼로리 (kcal)</label>
                    <input value={newKcal} onChange={e => setNewKcal(e.target.value)} className="w-full p-3 rounded-xl border" />
                 </div>
-                <input value={newCarbs} onChange={e => setNewCarbs(e.target.value)} placeholder="탄수화물(g)" className="p-3 rounded-xl border" />
-                <input value={newProtein} onChange={e => setNewProtein(e.target.value)} placeholder="단백질(g)" className="p-3 rounded-xl border" />
               </div>
               {newName && newKcal && (
                 <div className="pt-4 border-t border-indigo-100">
@@ -249,13 +255,14 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                   </h3>
                   <p className="text-xs text-gray-400 mt-1 font-medium">{selectedIngredient?.base_amount}g 당 {selectedIngredient?.kcal}kcal</p>
                 </div>
-                <button onClick={() => setSelectedIngredient(null)} className="text-xs text-indigo-400 font-bold underline bg-white px-3 py-1 rounded-full shadow-sm">변경</button>
+                {!editTarget && <button onClick={() => setSelectedIngredient(null)} className="text-xs text-indigo-400 font-bold underline bg-white px-3 py-1 rounded-full shadow-sm">변경</button>}
               </div>
               
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-gray-400 ml-1 uppercase">지금 얼마나 드셨나요?</label>
                 <div className="relative">
                   <input 
+                    autoFocus
                     type="number" 
                     step="0.1" 
                     value={amount} 
@@ -279,19 +286,29 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
         </div>
 
         <div className="p-6 border-t bg-gray-50 flex space-x-3 sticky bottom-0">
-          <button 
-            disabled={!preview}
-            onClick={() => handleSave(true)}
-            className="flex-1 py-4 px-2 border-2 border-indigo-600 text-indigo-600 font-black rounded-2xl active:bg-indigo-100 disabled:opacity-30 disabled:border-gray-200 disabled:text-gray-300 transition-all text-sm"
-          >
-            + 추가 기록
-          </button>
+          {editTarget && (
+            <button 
+              onClick={handleDelete}
+              className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 active:bg-red-100 transition-all text-sm"
+            >
+              삭제
+            </button>
+          )}
+          {!editTarget && (
+            <button 
+              disabled={!preview}
+              onClick={() => handleSave(true)}
+              className="flex-1 py-4 px-2 border-2 border-indigo-600 text-indigo-600 font-black rounded-2xl active:bg-indigo-100 disabled:opacity-30 disabled:border-gray-200 disabled:text-gray-300 transition-all text-sm"
+            >
+              + 추가 기록
+            </button>
+          )}
           <button 
             disabled={!preview}
             onClick={() => handleSave(false)}
             className="flex-1 py-4 px-2 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 disabled:opacity-30 transition-all text-sm"
           >
-            저장 후 닫기
+            {editTarget ? '기록 업데이트' : '저장 후 닫기'}
           </button>
         </div>
       </div>
