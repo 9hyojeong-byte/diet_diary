@@ -86,7 +86,6 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
                 <div>
                   <h4 className="font-bold text-gray-800 flex items-center">
                     {ing.name}
-                    {ing.is_bookmarked && <span className="ml-2 text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-black uppercase">Fav</span>}
                   </h4>
                   <p className="text-xs text-gray-400">기준: {ing.base_amount}g / {ing.kcal}kcal</p>
                 </div>
