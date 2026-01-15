@@ -23,7 +23,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
   // 요일 헤더 (월~일)
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
-  // 식단 데이터가 있는 날짜들을 Set으로 관리 (빠른 조회를 위해)
+  // 식단 데이터가 있는 날짜들을 Set으로 관리
   const mealDates = useMemo(() => {
     const dates = new Set<string>();
     meals.forEach(m => {
@@ -51,12 +51,9 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth();
     
-    // 해당 월의 1일
     const firstDay = new Date(year, month, 1);
-    // 1일의 요일 (월요일 시작을 위해 보정: 월0...일6)
     const firstDayIdx = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1);
     
-    // 달력의 시작 날짜 (이전 달 날짜 포함)
     const startDate = new Date(firstDay);
     startDate.setDate(firstDay.getDate() - firstDayIdx);
 
@@ -71,6 +68,13 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
     const next = new Date(viewMonth);
     next.setMonth(next.getMonth() + offset);
     setViewMonth(next);
+  };
+
+  const handleGoToday = () => {
+    const today = getKSTToday();
+    onSelectDate(today);
+    setViewMonth(new Date(today));
+    // 선택한 날짜가 잘 보이도록 오늘로 가면 리스트 뷰를 유지하거나 상황에 맞게 처리
   };
 
   return (
@@ -93,20 +97,29 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
           </svg>
         </button>
         
-        {isExpanded && (
-          <div className="flex space-x-1">
-            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={handleGoToday}
+            className="text-[10px] font-black px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+          >
+            TODAY
+          </button>
+          
+          {isExpanded && (
+            <div className="flex space-x-1">
+              <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 요일 라벨 */}

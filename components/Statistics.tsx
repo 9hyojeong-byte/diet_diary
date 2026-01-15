@@ -1,20 +1,22 @@
+
 import React, { useMemo, useState } from 'react';
 import { MealRecord } from '../types';
 
 interface StatisticsProps {
   meals: MealRecord[];
+  onDateSelect?: (date: string) => void;
 }
 
 type DisplayFilter = 'all' | 'protein' | 'kcal';
 
-const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
+const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
   const [filter, setFilter] = useState<DisplayFilter>('all');
   
   const TARGET_KCAL = 1500;
   const TARGET_PROTEIN = 100;
   const KCAL_THRESHOLD = 0.2; // 20%
 
-  // 요일 헤더 (월~일) - Calendar.tsx와 동일하게 구성
+  // 요일 헤더 (월~일)
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
   // 일별 데이터 집계
@@ -30,7 +32,7 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
     return agg;
   }, [meals]);
 
-  // 최근 3개월 월별 데이터 생성 (요일 정렬 포함)
+  // 최근 3개월 월별 데이터 생성
   const monthGrids = useMemo(() => {
     const months = [];
     const now = new Date();
@@ -39,18 +41,15 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
       const year = d.getFullYear();
       const month = d.getMonth();
       
-      // 해당 월의 1일 요일 인덱스 (월0...일6)
       const firstDay = new Date(year, month, 1);
       const firstDayIdx = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1);
       
       const lastDay = new Date(year, month + 1, 0).getDate();
       
       const dates = [];
-      // 1일 앞의 빈 공간 채우기
       for (let p = 0; p < firstDayIdx; p++) {
         dates.push(null);
       }
-      // 실제 날짜 채우기
       for (let day = 1; day <= lastDay; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         dates.push(dateStr);
@@ -73,7 +72,6 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
   };
 
   const perfectDaysCount = useMemo(() => {
-    // d의 타입을 명시적으로 지정하여 unknown 타입 에러를 방지합니다.
     return Object.values(dailyAggregates).filter((d: { kcal: number; protein: number; count: number }) => {
       const isProteinSuccess = d.protein >= TARGET_PROTEIN;
       const isKcalSuccess = 
@@ -153,7 +151,8 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
                   return (
                     <div 
                       key={date}
-                      className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all ${stat ? 'bg-gray-50/50' : ''}`}
+                      onClick={() => onDateSelect && onDateSelect(date)}
+                      className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer hover:bg-gray-100 active:scale-90 ${stat ? 'bg-gray-50/50' : ''}`}
                     >
                       <span className={`text-[11px] font-bold ${stat ? 'text-gray-900' : 'text-gray-300'}`}>{day}</span>
                       
@@ -182,7 +181,7 @@ const Statistics: React.FC<StatisticsProps> = ({ meals }) => {
         <ul className="space-y-1 list-disc pl-4">
           <li><span className="text-emerald-500 font-bold">초록색 점</span>: 단백질 100g 이상 섭취 성공</li>
           <li><span className="text-indigo-500 font-bold">보라색 점</span>: 1500kcal 기준 ±20% 범위 안착 성공</li>
-          <li>기록이 없는 날은 점이 표시되지 않습니다.</li>
+          <li>날짜를 클릭하면 해당 일의 상세 식단을 볼 수 있습니다.</li>
         </ul>
       </div>
     </div>

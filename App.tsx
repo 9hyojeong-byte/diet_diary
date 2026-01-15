@@ -143,8 +143,8 @@ const App: React.FC = () => {
 
   const handleOpenQuickInput = () => {
     setEditMealTarget(null);
-    setPrefilledType(null); // Form 내부의 시간 로직에 맡김
-    setSelectedDate(getKSTDate()); // 입력을 위해 오늘 날짜로 갱신
+    setPrefilledType(null);
+    setSelectedDate(getKSTDate());
     setIsInputOpen(true);
   };
 
@@ -231,11 +231,16 @@ const App: React.FC = () => {
             onDeleteIngredient={handleDeleteIngredient}
           />
         ) : (
-          <Statistics meals={meals} />
+          <Statistics 
+            meals={meals} 
+            onDateSelect={(date) => {
+              setSelectedDate(date);
+              setCurrentView('main');
+            }} 
+          />
         )}
       </main>
 
-      {/* Floating Action Button */}
       {currentView === 'main' && (
         <button 
           onClick={handleOpenQuickInput}
