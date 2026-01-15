@@ -27,15 +27,29 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
     editTarget ? (ingredients.find(i => i.uuid === editTarget.ingredient_uuid) || null) : null
   );
-  const [amount, setAmount] = useState(editTarget?.amount.toString() || '1');
+  const [amount, setAmount] = useState(editTarget?.amount.toString() || '100');
   
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newBase, setNewBase] = useState('1');
+  const [newBase, setNewBase] = useState('100');
   const [newKcal, setNewKcal] = useState('');
   const [newCarbs, setNewCarbs] = useState('');
   const [newProtein, setNewProtein] = useState('');
   const [newFat, setNewFat] = useState('');
+  const [shouldSaveToIngredients, setShouldSaveToIngredients] = useState(false); // 기본값: 식재료 목록에 저장하지 않음
+
+  // 탄/단/지 입력 시 칼로리 자동 계산 로직
+  useEffect(() => {
+    if (isAddingNew) {
+      const c = parseFloat(newCarbs) || 0;
+      const p = parseFloat(newProtein) || 0;
+      const f = parseFloat(newFat) || 0;
+      const calculated = (c * 4) + (p * 4) + (f * 9);
+      if (calculated > 0) {
+        setNewKcal(calculated.toFixed(1));
+      }
+    }
+  }, [newCarbs, newProtein, newFat, isAddingNew]);
 
   useEffect(() => {
     if (!prefilledType && !editTarget) {
@@ -61,6 +75,17 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   }, [searchTerm, ingredients]);
 
   const preview = useMemo(() => {
+    if (isAddingNew) {
+      const factor = parseFloat(amount) / (parseFloat(newBase) || 100);
+      return {
+        kcal: (parseFloat(newKcal) || 0) * factor,
+        carbs: (parseFloat(newCarbs) || 0) * factor,
+        protein: (parseFloat(newProtein) || 0) * factor,
+        fat: (parseFloat(newFat) || 0) * factor,
+        sugar: 0,
+        fiber: 0,
+      };
+    }
     const ing = selectedIngredient;
     if (!ing || !amount) return null;
     const factor = parseFloat(amount) / ing.base_amount;
@@ -72,17 +97,19 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       sugar: (ing.sugar || 0) * factor,
       fiber: (ing.fiber || 0) * factor,
     };
-  }, [selectedIngredient, amount]);
+  }, [selectedIngredient, amount, isAddingNew, newBase, newKcal, newCarbs, newProtein, newFat]);
 
   const handleSave = (keepOpen: boolean) => {
-    let finalIngredient = selectedIngredient;
+    let finalIngredientUuid = selectedIngredient?.uuid || 'direct-entry';
+    let finalIngredientName = selectedIngredient?.name || newName || '직접 입력 식단';
     let newIngData: Ingredient | undefined;
-    if (isAddingNew) {
+    
+    if (isAddingNew && shouldSaveToIngredients) {
       newIngData = {
         uuid: crypto.randomUUID(),
-        name: newName,
-        base_amount: parseFloat(newBase),
-        kcal: parseFloat(newKcal),
+        name: finalIngredientName,
+        base_amount: parseFloat(newBase) || 100,
+        kcal: parseFloat(newKcal) || 0,
         carbs: parseFloat(newCarbs || '0'),
         protein: parseFloat(newProtein || '0'),
         fat: parseFloat(newFat || '0'),
@@ -90,25 +117,35 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
         fiber: 0,
         is_bookmarked: false
       };
-      finalIngredient = newIngData;
+      finalIngredientUuid = newIngData.uuid;
     }
-    if (!finalIngredient || !preview) return;
+    
+    if (!preview) return;
+    
     const newMeal: MealRecord = {
       uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
       date,
       time,
-      ingredient_uuid: finalIngredient.uuid,
+      ingredient_name: finalIngredientName,
+      ingredient_uuid: finalIngredientUuid,
       amount: parseFloat(amount),
       ...preview
     };
+    
     onSave(newMeal, newIngData);
+    
     if (keepOpen) {
       setSearchTerm('');
       setSelectedIngredient(null);
-      setAmount('1');
+      setAmount('100');
       setIsAddingNew(false);
       setNewName('');
+      setNewKcal('');
+      setNewCarbs('');
+      setNewProtein('');
+      setNewFat('');
+      setShouldSaveToIngredients(false);
     } else {
       onClose();
     }
@@ -163,7 +200,15 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           {!isAddingNew && !selectedIngredient ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식재료 검색</label>
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase">식재료 검색</label>
+                  <button 
+                    onClick={() => setIsAddingNew(true)}
+                    className="text-[10px] font-black text-indigo-600 underline"
+                  >
+                    직접 입력하기
+                  </button>
+                </div>
                 <div className="relative">
                   <input 
                     autoFocus
@@ -222,28 +267,66 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               </div>
             </div>
           ) : isAddingNew ? (
-            <div className="space-y-4 bg-indigo-50/30 p-5 rounded-[32px] border border-indigo-100 animate-in zoom-in duration-300">
+            <div className="space-y-5 bg-indigo-50/30 p-5 rounded-[32px] border border-indigo-100 animate-in zoom-in duration-300">
               <div className="flex justify-between items-center">
-                <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest">새 식재료 정보</h3>
+                <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest">직접 입력 (임의 식단)</h3>
                 <button onClick={() => setIsAddingNew(false)} className="text-[10px] text-gray-400 underline font-bold">검색으로 돌아가기</button>
               </div>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 그릭요거트)" className="w-full p-3 rounded-xl border ring-offset-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
-              <div className="grid grid-cols-2 gap-3">
+              
+              <div className="space-y-4">
                 <div className="space-y-1">
-                   <label className="text-[10px] text-gray-400 font-bold ml-1">기준 (g)</label>
-                   <input value={newBase} onChange={e => setNewBase(e.target.value)} className="w-full p-3 rounded-xl border" />
+                  <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">식단 명</label>
+                  <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 엄마표 볶음밥)" className="w-full p-4 rounded-2xl border bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
-                <div className="space-y-1">
-                   <label className="text-[10px] text-gray-400 font-bold ml-1">칼로리 (kcal)</label>
-                   <input value={newKcal} onChange={e => setNewKcal(e.target.value)} className="w-full p-3 rounded-xl border" />
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">탄(g)</label>
+                     <input type="number" placeholder="0" value={newCarbs} onChange={e => setNewCarbs(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">단(g)</label>
+                     <input type="number" placeholder="0" value={newProtein} onChange={e => setNewProtein(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">지(g)</label>
+                     <input type="number" placeholder="0" value={newFat} onChange={e => setNewFat(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-indigo-600 font-black ml-1 uppercase">자동 계산 칼로리</label>
+                     <div className="relative">
+                        <input type="number" value={newKcal} onChange={e => setNewKcal(e.target.value)} className="w-full p-3 rounded-xl border bg-indigo-50 border-indigo-200 text-center font-black text-indigo-600" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-indigo-300 font-bold">kcal</span>
+                     </div>
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">기준량 (g)</label>
+                     <input type="number" value={newBase} onChange={e => setNewBase(e.target.value)} className="w-full p-3 rounded-xl border text-center" />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 px-1">
+                  <input 
+                    type="checkbox" 
+                    id="saveToIng" 
+                    checked={shouldSaveToIngredients} 
+                    onChange={e => setShouldSaveToIngredients(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="saveToIng" className="text-xs font-bold text-gray-500">이 메뉴를 식재료 목록에도 등록하기</label>
+                </div>
+
+                <div className="pt-4 border-t border-indigo-100">
+                  <label className="block text-[10px] font-black text-indigo-600 mb-2 uppercase">실제 먹은 양 (g)</label>
+                  <div className="relative">
+                    <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-6 rounded-3xl border-2 border-indigo-500 text-4xl font-black focus:ring-0 outline-none text-center bg-white" />
+                    <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xl italic">g</span>
+                  </div>
                 </div>
               </div>
-              {newName && newKcal && (
-                <div className="pt-4 border-t border-indigo-100">
-                  <label className="block text-[10px] font-black text-indigo-600 mb-2 uppercase">지금 먹은 양 (g)</label>
-                  <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-indigo-500 text-3xl font-black focus:ring-0 outline-none text-center" />
-                </div>
-              )}
             </div>
           ) : (
             <div className="bg-indigo-50/50 p-6 rounded-[40px] flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-300">

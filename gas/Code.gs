@@ -45,7 +45,8 @@ function getSheets() {
   
   if (!mealsSheet) {
     mealsSheet = ss.insertSheet('Meals');
-    mealsSheet.appendRow(['uuid', 'type', 'date', 'time', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
+    // ingredient_name 컬럼 추가 (기존 Meals 시트가 있다면 수동으로 한 열 추가 필요할 수 있음)
+    mealsSheet.appendRow(['uuid', 'type', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
   }
   
   return { ingredientsSheet, mealsSheet };
@@ -77,7 +78,22 @@ function dataToJson(data) {
 
 function saveMeal(meal) {
   const { mealsSheet } = getSheets();
-  mealsSheet.appendRow([meal.uuid, meal.type, meal.date, meal.time, meal.ingredient_uuid, meal.amount, meal.kcal, meal.carbs, meal.protein, meal.fat, meal.sugar, meal.fiber]);
+  // ingredient_name 포함하여 저장
+  mealsSheet.appendRow([
+    meal.uuid, 
+    meal.type, 
+    meal.date, 
+    meal.time, 
+    meal.ingredient_name || '', 
+    meal.ingredient_uuid, 
+    meal.amount, 
+    meal.kcal, 
+    meal.carbs, 
+    meal.protein, 
+    meal.fat, 
+    meal.sugar, 
+    meal.fiber
+  ]);
 }
 
 function saveIngredient(ing) {

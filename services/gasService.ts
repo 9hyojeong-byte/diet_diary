@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw1E7eTlCn5SGsJvEj633m4HZQHjd3kgfJZ6JKvyLgf1Sf2Ny8PrkFBlGIfOY94FjAy/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz9j4qBdGB131uFq1sdgGvbjcdeGQuFSnXRSvQX3SescpIz6bjIbP84Vt4OZU64byih/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[] }> {
   try {

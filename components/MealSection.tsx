@@ -12,9 +12,13 @@ interface Props {
 }
 
 const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit, onDelete }) => {
-  const getIngredientName = (uuid: any) => {
-    if (!uuid) return '식재료 정보 없음';
-    const targetUuid = String(uuid).trim();
+  const getIngredientDisplayName = (meal: MealRecord) => {
+    // 1. 식단 기록 자체에 저장된 이름이 있으면 그것을 사용 (일회성 식단 대응)
+    if (meal.ingredient_name) return meal.ingredient_name;
+    
+    // 2. 없으면 UUID로 식재료 목록에서 찾기
+    if (!meal.ingredient_uuid) return '식재료 정보 없음';
+    const targetUuid = String(meal.ingredient_uuid).trim();
     const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
     return found ? found.name : '알 수 없는 식재료';
   };
@@ -65,7 +69,7 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit,
             >
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
-                  <p className="font-bold text-sm text-gray-800">{getIngredientName(meal.ingredient_uuid)}</p>
+                  <p className="font-bold text-sm text-gray-800">{getIngredientDisplayName(meal)}</p>
                 </div>
                 <p className="text-xs text-gray-500">{meal.amount}g • {meal.time}</p>
               </div>

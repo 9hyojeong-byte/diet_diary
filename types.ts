@@ -25,7 +25,7 @@ export interface MealRecord {
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   ingredient_uuid: string;
-  ingredient_name?: string; // Derived field
+  ingredient_name?: string; // 저장된 이름 (일회성 식단 대응)
   amount: number;
   kcal: number;
   carbs: number;
