@@ -8,6 +8,7 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
   // 가이드라인에 따라 process.env.API_KEY를 사용합니다.
   // Vite 환경에서는 빌드 시점에 대체되거나, index.tsx의 브릿지를 통해 window.process.env에서 가져옵니다.
   let apiKey = process.env.API_KEY;
+  
 
   // 만약 process.env.API_KEY가 정의되지 않았다면 window 객체에서 직접 확인 (런타임 브릿지)
   if (!apiKey || apiKey === "undefined") {
@@ -19,7 +20,7 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
     return "API 키를 인식하지 못했습니다. Vercel에서 VITE_API_KEY를 설정한 후 [Redeploy] 시 'Clear Cache' 옵션이 있다면 체크하고 다시 진행해 주세요.";
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-flash-preview';
 
   const prompt = `당신은 효정님의 다정한 전담 영양사입니다. 
