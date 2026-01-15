@@ -3,33 +3,47 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 
-// 전역 process 객체 및 API_KEY 브릿지 설정
-(function() {
+/**
+ * 런타임에 API 키를 확실하게 확보하기 위한 브릿지 로직입니다.
+ * 빌드 도구가 process.env.API_KEY를 "undefined" 문자열로 치환하는 것을 방어합니다.
+ */
+(function setupRuntimeBridge() {
   const g = globalThis as any;
-  if (!g.process) {
-    g.process = { env: {} };
-  }
   
-  const isValid = (val: any) => val && val !== "undefined" && val !== "null";
+  // 1. process.env 구조 강제 생성
+  if (!g.process) g.process = { env: {} };
+  if (!g.process.env) g.process.env = {};
+  
+  // 유효성 체크 함수: undefined/null 문자열이 박히는 경우를 철저히 거름
+  const isTrulyValid = (v: any) => 
+    v && typeof v === 'string' && v !== 'undefined' && v !== 'null' && v.trim() !== '';
 
-  // 1. 기존 값 확인
-  let key = g.process.env.API_KEY;
-  
-  // 2. 만약 기존 값이 유효하지 않으면 다른 출처 확인 (Vite import.meta.env)
-  if (!isValid(key)) {
-    // @ts-ignore
+  // 2. 소스 탐색 (우선순위: window 직접 주입 > import.meta.env > process.env)
+  // 대괄호 표기법['...']을 사용해야 번들러의 정적 분석(Static Analysis)을 피할 수 있습니다.
+  let targetKey = 
+    g['API_KEY'] || 
+    g['VITE_API_KEY'] || 
+    (g.window && (g.window['API_KEY'] || g.window['VITE_API_KEY']));
+
+  if (!isTrulyValid(targetKey)) {
+    // @ts-ignore (Vite 환경)
     const vEnv = import.meta.env || {};
-    key = vEnv.API_KEY || vEnv.VITE_API_KEY;
+    targetKey = vEnv['API_KEY'] || vEnv['VITE_API_KEY'];
   }
 
-  // 3. 여전히 유효하지 않으면 window/global 객체에서 직접 확인 (런타임 주입 대비)
-  if (!isValid(key)) {
-    key = g.API_KEY || g.VITE_API_KEY || g.window?.API_KEY;
+  if (!isTrulyValid(targetKey)) {
+    // 마지막으로 process.env['API_KEY'] 확인 (정적 치환되지 않은 동적 접근)
+    targetKey = g.process.env['API_KEY'];
   }
 
-  // 최종적으로 유효한 키가 있다면 할당
-  if (isValid(key)) {
-    g.process.env.API_KEY = key;
+  // 3. 발견된 키를 모든 전역 위치에 강제 고정
+  if (isTrulyValid(targetKey)) {
+    g.process.env['API_KEY'] = targetKey;
+    g.process.env.API_KEY = targetKey; // 정적 참조 대비
+    g['API_KEY'] = targetKey;          // window 대비
+    console.log("✅ Runtime Bridge: API_KEY successfully established.");
+  } else {
+    console.error("❌ Runtime Bridge: Critical! API_KEY not found in any scope.");
   }
 })();
 
