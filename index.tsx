@@ -3,19 +3,21 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 
-// Vercel/Vite 환경에서 process.env.API_KEY를 사용할 수 있도록 브릿지 설정
+// [중요] 최우선 실행: 전역 process 객체 및 API_KEY 브릿지 설정
 (function() {
-  if (typeof (window as any).process === 'undefined') {
-    (window as any).process = { env: {} };
+  const g = globalThis as any;
+  if (!g.process) {
+    g.process = { env: {} };
   }
   
-  // @ts-ignore
+  // @ts-ignore - Vite 환경 변수 접근
   const vEnv = import.meta.env;
   if (vEnv) {
-    if (vEnv.VITE_API_KEY) {
-      (window as any).process.env.API_KEY = vEnv.VITE_API_KEY;
-    } else if (vEnv.API_KEY) {
-      (window as any).process.env.API_KEY = vEnv.API_KEY;
+    // Vercel에서 설정한 VITE_API_KEY를 우선적으로 process.env.API_KEY에 할당
+    const key = vEnv.VITE_API_KEY || vEnv.API_KEY;
+    if (key) {
+      g.process.env.API_KEY = key;
+      console.log("Gemini API Key bridge initialized.");
     }
   }
 })();

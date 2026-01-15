@@ -5,16 +5,23 @@ import { GoogleGenAI } from "@google/genai";
  * 효정님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
-  // 가이드라인에 따라 process.env.API_KEY를 직접 사용합니다.
-  // index.tsx의 브릿지 로직 덕분에 브라우저에서도 이 값을 읽을 수 있습니다.
-  const apiKey = process.env.API_KEY;
+  /**
+   * 가이드라인에 따라 process.env.API_KEY를 사용합니다.
+   * Vite 빌드 도구가 이 코드를 "undefined" 문자열로 치환하는 것을 방지하기 위해 
+   * 런타임 체크 로직을 강화합니다.
+   */
+  let apiKey = process.env.API_KEY;
 
+  // 만약 빌드 타임에 "undefined" 문자열로 박혔거나 실제 undefined라면 window 객체에서 재확인
   if (!apiKey || apiKey === "undefined") {
-    console.error("Gemini API Key is missing.");
-    return "API 키를 인식하지 못했습니다. Vercel 설정에서 VITE_API_KEY가 등록되었는지 확인 후 Redeploy 해주세요.";
+    apiKey = (window as any).process?.env?.API_KEY;
   }
 
-  // 최신 SDK 방식: 인스턴스 생성 시 객체 형태로 전달
+  if (!apiKey || apiKey === "undefined") {
+    console.error("Gemini API Key is missing even after runtime check.");
+    return "API 키를 인식하지 못했습니다. Vercel 설정에서 [VITE_API_KEY]를 다시 확인하고, 수정 후 'Redeploy' (기존 빌드 캐시 무시)를 진행해 주세요.";
+  }
+
   const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `당신은 효정님의 다정한 전담 영양사입니다. 
@@ -24,13 +31,11 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
 답변은 한국어로 3문장 이내로 작성하세요.`;
 
   try {
-    // 최신 호출 방식: ai.models.generateContent
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
-    // response.text는 메서드가 아니라 게터(Getter) 속성입니다.
     const text = response.text;
     
     if (!text) {
@@ -42,9 +47,9 @@ export async function getAIRecommendation(currentKcal: number, currentProtein: n
     console.error("Gemini API Error:", error);
     
     if (error.message?.includes("API key not valid")) {
-      return "설정된 API 키가 유효하지 않습니다.";
+      return "설정된 API 키가 유효하지 않습니다. 키 값을 다시 확인해 주세요.";
     }
     
-    return "AI 분석 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.";
+    return "AI 분석 중 오류가 발생했습니다. (네트워크 또는 서버 이슈)";
   }
 }
