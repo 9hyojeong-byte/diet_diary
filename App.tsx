@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType } from './types';
 import Calendar from './components/Calendar';
@@ -8,6 +7,7 @@ import MealInputForm from './components/MealInputForm';
 import AIAdviceModal from './components/AIAdviceModal';
 import Sidebar from './components/Sidebar';
 import IngredientManagement from './components/IngredientManagement';
+import Statistics from './components/Statistics';
 import { 
   fetchInitialData, 
   saveMealToGAS, 
@@ -26,7 +26,7 @@ const App: React.FC = () => {
     return kst.toISOString().split('T')[0];
   };
 
-  const [currentView, setCurrentView] = useState<'main' | 'ingredients'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getKSTDate());
   const [meals, setMeals] = useState<MealRecord[]>([]);
@@ -69,7 +69,6 @@ const App: React.FC = () => {
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
     const isUpdate = meals.some(m => m.uuid === newMeal.uuid);
     
-    // UI 우선 업데이트 (Optimistic)
     if (isUpdate) {
       setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...newMeal, pending: true } : m));
     } else {
@@ -164,7 +163,7 @@ const App: React.FC = () => {
           </svg>
         </button>
         <h1 className="ml-2 text-xl font-bold">
-          {currentView === 'main' ? '쿠쿠쿠🥗 식단 기록' : '식재료 관리'}
+          {currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : '나의 통계'}
         </h1>
       </header>
 
@@ -215,7 +214,7 @@ const App: React.FC = () => {
               <span>AI 영양 추천 받기</span>
             </button>
           </div>
-        ) : (
+        ) : currentView === 'ingredients' ? (
           <IngredientManagement 
             ingredients={ingredients}
             onToggleBookmark={handleToggleBookmark}
@@ -223,6 +222,8 @@ const App: React.FC = () => {
             onUpdateIngredient={handleUpdateIngredient}
             onDeleteIngredient={handleDeleteIngredient}
           />
+        ) : (
+          <Statistics meals={meals} />
         )}
       </main>
 

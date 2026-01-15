@@ -1,7 +1,6 @@
-
 {
-  "name": "Hyojung's Smart Diet",
-  "short_name": "SmartDiet",
+  "name": "Kuku's Smart Diet",
+  "short_name": "KukuDiet",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

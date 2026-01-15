@@ -1,8 +1,7 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * 효정님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
+ * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(currentKcal: number, currentProtein: number): Promise<string | undefined> {
   /**

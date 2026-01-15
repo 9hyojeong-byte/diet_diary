@@ -4,20 +4,18 @@ import React from 'react';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  currentView: 'main' | 'ingredients';
-  onNavigate: (view: 'main' | 'ingredients') => void;
+  currentView: 'main' | 'ingredients' | 'stats';
+  onNavigate: (view: 'main' | 'ingredients' | 'stats') => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
   return (
     <>
-      {/* Backdrop */}
       <div 
         className={`fixed inset-0 bg-black/50 z-[100] transition-opacity duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
         onClick={onClose}
       />
       
-      {/* Sidebar Drawer */}
       <div 
         className={`fixed top-0 left-0 bottom-0 w-[280px] bg-white z-[101] shadow-2xl transition-transform duration-300 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
@@ -46,26 +44,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />}
             label="식재료 관리" 
           />
+          <MenuButton 
+            active={currentView === 'stats'} 
+            onClick={() => { onNavigate('stats'); onClose(); }}
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />}
+            label="나의 통계" 
+          />
           
-          <div className="pt-8 px-4">
+          <div className="pt-8 px-4 border-t mt-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Support</p>
             <div className="space-y-4">
-               <a href="#" className="text-sm text-gray-500 hover:text-indigo-600 flex items-center space-x-2">
+               <div className="text-sm text-gray-400 flex items-center space-x-2">
                  <span>⚙️ 설정 (준비중)</span>
-               </a>
-               <a href="#" className="text-sm text-gray-500 hover:text-indigo-600 flex items-center space-x-2">
-                 <span>📊 통계 (준비중)</span>
-               </a>
+               </div>
             </div>
           </div>
         </nav>
 
         <div className="absolute bottom-6 left-6 right-6 p-4 bg-indigo-50 rounded-2xl">
           <p className="text-xs font-bold text-indigo-600 mb-1">식단 목표</p>
-          <p className="text-[10px] text-gray-500">매일 1500kcal • 단백질 100g</p>
-          <div className="mt-2 w-full bg-indigo-200 h-1 rounded-full overflow-hidden">
-            <div className="bg-indigo-600 h-full w-[65%]" />
-          </div>
+          <p className="text-[10px] text-gray-500 italic">매일 1500kcal • 단백질 100g</p>
         </div>
       </div>
     </>
