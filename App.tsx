@@ -9,6 +9,7 @@ import AIAdviceModal from './components/AIAdviceModal';
 import Sidebar from './components/Sidebar';
 import IngredientManagement from './components/IngredientManagement';
 import Statistics from './components/Statistics';
+import ExitModal from './components/ExitModal';
 import { 
   fetchInitialData, 
   saveMealToGAS, 
@@ -43,6 +44,38 @@ const App: React.FC = () => {
   const [editMealTarget, setEditMealTarget] = useState<MealRecord | null>(null);
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+
+  // 뒤로가기 버튼 제어 (History Trap)
+  useEffect(() => {
+    // 초기 스택 추가
+    window.history.pushState({ noBackExitsApp: true }, '');
+
+    const handlePopState = (event: PopStateEvent) => {
+      // 사이드바나 모달이 열려있다면 그것부터 닫기
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        window.history.pushState({ noBackExitsApp: true }, '');
+        return;
+      }
+      if (isInputOpen) {
+        setIsInputOpen(false);
+        window.history.pushState({ noBackExitsApp: true }, '');
+        return;
+      }
+      if (adviceModalOpen) {
+        setAdviceModalOpen(false);
+        window.history.pushState({ noBackExitsApp: true }, '');
+        return;
+      }
+
+      // 아무것도 안 열려있을 때 뒤로가기 누르면 종료 모달 띄우기
+      setIsExitModalOpen(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isSidebarOpen, isInputOpen, adviceModalOpen]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -117,7 +150,6 @@ const App: React.FC = () => {
     const updatedMeal: MealRecord = { 
       ...target, 
       status,
-      // 실제 섭취로 바꿀 때만 시간을 현재로 갱신
       time: status === MealStatus.ACTUAL ? getKSTTime() : target.time,
       pending: true 
     };
@@ -319,6 +351,17 @@ const App: React.FC = () => {
           onClose={() => setAdviceModalOpen(false)}
           currentKcal={summary.actual.kcal}
           currentProtein={summary.actual.protein}
+        />
+      )}
+
+      {isExitModalOpen && (
+        <ExitModal 
+          isOpen={isExitModalOpen}
+          onClose={() => {
+            setIsExitModalOpen(false);
+            // 모달을 닫을 때 다시 히스토리 트랩을 설치
+            window.history.pushState({ noBackExitsApp: true }, '');
+          }}
         />
       )}
     </div>

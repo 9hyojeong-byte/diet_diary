@@ -1,5 +1,5 @@
 {
-  "name": "Kuku's Smart Diet",
+  "name": "식단기록 PWA",
   "description": "A PWA diet management app using Google Sheets as a database and Gemini for personalized nutritional advice.",
   "requestFramePermissions": []
 }
