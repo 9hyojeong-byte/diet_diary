@@ -10,7 +10,7 @@ interface Props {
   editTarget?: MealRecord | null;
   ingredients: Ingredient[];
   onSave: (meal: MealRecord, ingredient?: Ingredient) => void;
-  onDelete?: (uuid: string) => void;
+  onDelete?: (uuid: string) => Promise<boolean>;
 }
 
 const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, onSave, onDelete }) => {
@@ -20,92 +20,75 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     return kst.toISOString().split('T')[1].slice(0, 5);
   };
 
+  const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
+
   const [date, setDate] = useState(editTarget?.date || selectedDate);
   const [time, setTime] = useState(editTarget?.time || getKSTTime());
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
-  
-  // 상태 선택 UI를 제거하고, 기본값은 ACTUAL로 설정 (수동 PLANNED 전환은 스와이프로 유도)
   const [status, setStatus] = useState<MealStatus>(editTarget?.status || MealStatus.ACTUAL);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
-    editTarget ? (ingredients.find(i => i.uuid === editTarget.ingredient_uuid) || null) : null
+    (editTarget && !isDirectEntryEdit) ? (ingredients.find(i => String(i.uuid) === String(editTarget.ingredient_uuid)) || null) : null
   );
   const [amount, setAmount] = useState(editTarget?.amount.toString() || '1');
   
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newBase, setNewBase] = useState('1');
-  const [newKcal, setNewKcal] = useState('');
-  const [newCarbs, setNewCarbs] = useState('');
-  const [newProtein, setNewProtein] = useState('');
-  const [newFat, setNewFat] = useState('');
+  // 임의입력(직접 입력) 관련 상태
+  const [isAddingNew, setIsAddingNew] = useState(isDirectEntryEdit);
+  const [newName, setNewName] = useState(editTarget?.ingredient_name || '');
+  const [newBase, setNewBase] = useState(editTarget?.amount.toString() || '1');
+  const [newKcal, setNewKcal] = useState(editTarget?.kcal.toString() || '');
+  const [newCarbs, setNewCarbs] = useState(editTarget?.carbs.toString() || '');
+  const [newProtein, setNewProtein] = useState(editTarget?.protein.toString() || '');
+  const [newFat, setNewFat] = useState(editTarget?.fat.toString() || '');
   const [shouldSaveToIngredients, setShouldSaveToIngredients] = useState(false);
 
+  // 커스텀 삭제 확인 UI 상태
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
+    // 수동 입력(신규/수정 모두) 시 탄단지 변경에 따른 칼로리 자동 계산
     if (isAddingNew) {
       const c = parseFloat(newCarbs) || 0;
       const p = parseFloat(newProtein) || 0;
       const f = parseFloat(newFat) || 0;
       const calculated = (c * 4) + (p * 4) + (f * 9);
-      if (calculated > 0) {
+      
+      // 값이 유효할 때만 업데이트 (모두 0일 때는 빈 칼로리 허용)
+      if (calculated >= 0) {
         setNewKcal(calculated.toFixed(1));
       }
     }
   }, [newCarbs, newProtein, newFat, isAddingNew]);
 
-  useEffect(() => {
-    if (!prefilledType && !editTarget) {
-      const h = parseInt(time.split(':')[0]);
-      const m = parseInt(time.split(':')[1]);
-      const totalMin = h * 60 + m;
-      if (totalMin >= 360 && totalMin < 720) setType(MealType.BREAKFAST);
-      else if (totalMin >= 720 && totalMin < 840) setType(MealType.LUNCH);
-      else if (totalMin >= 840 && totalMin < 1080) setType(MealType.SNACK);
-      else setType(MealType.DINNER);
-    }
-  }, [time, prefilledType, editTarget]);
-
-  const bookmarkedIngredients = useMemo(() => {
-    return ingredients.filter(i => i.is_bookmarked).slice(0, 12);
-  }, [ingredients]);
-
-  const filteredIngredients = useMemo(() => {
-    if (!searchTerm) return [];
-    return ingredients
-      .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => (b.is_bookmarked ? 1 : 0) - (a.is_bookmarked ? 1 : 0))
-      .slice(0, 8);
-  }, [searchTerm, ingredients]);
-
   const preview = useMemo(() => {
     if (isAddingNew) {
-      const factor = parseFloat(amount) / (parseFloat(newBase) || 1);
+      const currentAmount = parseFloat(amount) || 0;
+      const currentBase = parseFloat(newBase) || 1;
+      // 0으로 나누기 방지
+      const factor = currentBase === 0 ? 0 : currentAmount / currentBase;
       return {
         kcal: (parseFloat(newKcal) || 0) * factor,
         carbs: (parseFloat(newCarbs) || 0) * factor,
         protein: (parseFloat(newProtein) || 0) * factor,
         fat: (parseFloat(newFat) || 0) * factor,
-        sugar: 0,
-        fiber: 0,
       };
     }
     const ing = selectedIngredient;
     if (!ing || !amount) return null;
-    const factor = parseFloat(amount) / ing.base_amount;
+    const factor = ing.base_amount === 0 ? 0 : parseFloat(amount) / ing.base_amount;
     return {
       kcal: ing.kcal * factor,
       carbs: (ing.carbs || 0) * factor,
       protein: (ing.protein || 0) * factor,
       fat: (ing.fat || 0) * factor,
-      sugar: (ing.sugar || 0) * factor,
-      fiber: (ing.fiber || 0) * factor,
     };
   }, [selectedIngredient, amount, isAddingNew, newBase, newKcal, newCarbs, newProtein, newFat]);
 
   const handleSave = (keepOpen: boolean) => {
     let finalIngredientUuid = selectedIngredient?.uuid || 'direct-entry';
-    let finalIngredientName = selectedIngredient?.name || newName || '직접 입력 식단';
+    let finalIngredientName = isAddingNew ? (newName || '직접 입력 식단') : (selectedIngredient?.name || '식재료 정보 없음');
     let newIngData: Ingredient | undefined;
     
     if (isAddingNew && shouldSaveToIngredients) {
@@ -126,7 +109,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     
     if (!preview) return;
     
-    const newMeal: MealRecord = {
+    onSave({
       uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
       status,
@@ -135,177 +118,178 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       ingredient_name: finalIngredientName,
       ingredient_uuid: finalIngredientUuid,
       amount: parseFloat(amount),
-      ...preview
-    };
-    
-    onSave(newMeal, newIngData);
-    
-    if (keepOpen) {
-      setSearchTerm('');
-      setSelectedIngredient(null);
-      setAmount('1');
-      setIsAddingNew(false);
-      setNewName('');
-      setNewKcal('');
-      setNewCarbs('');
-      setNewProtein('');
-      setNewFat('');
-      setShouldSaveToIngredients(false);
-    } else {
-      onClose();
-    }
+      kcal: preview.kcal,
+      carbs: preview.carbs,
+      protein: preview.protein,
+      fat: preview.fat,
+      sugar: 0,
+      fiber: 0
+    }, newIngData);
+    onClose();
   };
 
-  const handleDelete = () => {
+  const confirmDelete = async () => {
     if (editTarget && onDelete) {
-      onDelete(editTarget.uuid);
-      onClose();
+      setIsDeleting(true);
+      setShowDeleteConfirm(false); 
+      
+      try {
+        const success = await onDelete(editTarget.uuid);
+        if (success) {
+          onClose();
+        } else {
+          setIsDeleting(false);
+          alert("삭제 처리에 실패했습니다. 다시 시도해 주세요.");
+        }
+      } catch (err) {
+        setIsDeleting(false);
+        console.error("Delete failed:", err);
+      }
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-      <div className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-3xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-3xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-10 relative" onClick={e => e.stopPropagation()}>
+        
+        {/* 커스텀 삭제 확인 레이어 */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 z-[130] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-200">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center text-red-500 mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 mb-2">정말 삭제할까요?</h3>
+            <p className="text-gray-500 font-medium mb-8">기록된 영양 데이터가 통계에서 제외됩니다.</p>
+            <div className="flex flex-col w-full space-y-3">
+              <button 
+                onClick={confirmDelete}
+                className="w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg shadow-red-100 active:scale-95 transition-all"
+              >
+                네, 삭제할게요
+              </button>
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl active:scale-95 transition-all"
+              >
+                아니오, 유지할게요
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 삭제 로딩 레이어 */}
+        {isDeleting && (
+          <div className="absolute inset-0 z-[140] bg-white/60 backdrop-blur-[1px] flex flex-col items-center justify-center animate-in fade-in">
+            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 text-xs font-bold text-red-500">삭제하는 중...</p>
+          </div>
+        )}
+
         <div className="p-6 border-b flex justify-between items-center bg-white">
           <h2 className="text-xl font-black">{editTarget ? '기록 수정' : '식단 입력'}</h2>
           <button onClick={onClose} className="bg-gray-100 p-2 rounded-full text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">날짜</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 p-3 rounded-2xl border-none ring-1 ring-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">시간</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-gray-50 p-3 rounded-2xl border-none ring-1 ring-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식사 분류</label>
-            <div className="flex bg-gray-100 p-1 rounded-2xl">
-              {[MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setType(t)}
-                  className={`flex-1 py-2 text-xs rounded-xl transition-all ${type === t ? 'bg-white shadow-md font-black text-indigo-600' : 'text-gray-400'}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {!isAddingNew && !selectedIngredient ? (
             <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">식재료 검색</label>
-                  <button onClick={() => setIsAddingNew(true)} className="text-[10px] font-black text-indigo-600 underline">직접 입력하기</button>
-                </div>
-                <div className="relative">
-                  <input autoFocus type="text" placeholder="식재료 검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white shadow-sm font-medium" />
-                </div>
+              <div className="relative">
+                <input autoFocus type="text" placeholder="식재료 검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium" />
+                <button onClick={() => setIsAddingNew(true)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-600 underline">직접 입력</button>
               </div>
-
-              {/* 검색어 없을 때 즐겨찾기 목록 표시 */}
-              {!searchTerm && bookmarkedIngredients.length > 0 && (
-                <div className="space-y-3 animate-in fade-in duration-500">
-                  <div className="flex items-center space-x-2 px-1">
-                    <span className="text-amber-400 text-xs">★</span>
-                    <label className="text-[10px] font-black text-gray-400 uppercase">자주 먹는 식재료</label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {bookmarkedIngredients.map(i => (
-                      <button 
-                        key={i.uuid} 
-                        onClick={() => setSelectedIngredient(i)}
-                        className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-left hover:bg-indigo-100 transition-colors group"
-                      >
-                        <p className="text-xs font-bold text-indigo-900 line-clamp-1">{i.name}</p>
-                        <p className="text-[9px] text-indigo-400 font-medium">{i.kcal}kcal / {i.base_amount}g</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {searchTerm && (
-                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                  {filteredIngredients.map(i => (
-                    <button key={i.uuid} onClick={() => { setSelectedIngredient(i); setSearchTerm(''); }} className="w-full text-left p-4 bg-white border border-gray-100 hover:border-indigo-500 rounded-2xl flex justify-between items-center transition-all shadow-sm group">
-                      <div className="flex items-center space-x-3">
-                        {i.is_bookmarked && <span className="text-amber-400">★</span>}
-                        <span className="font-bold text-gray-800">{i.name}</span>
-                      </div>
-                      <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">{i.kcal} kcal / {i.base_amount}g</span>
-                    </button>
-                  ))}
-                  {filteredIngredients.length === 0 && (
-                    <div className="text-center py-6 text-xs text-gray-400">
-                      검색 결과가 없습니다.
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-2">
+                {ingredients.filter(i => i.is_bookmarked).slice(0, 10).map(i => (
+                  <button key={i.uuid} onClick={() => setSelectedIngredient(i)} className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-left hover:bg-indigo-100 transition-colors"><p className="text-xs font-bold text-indigo-900 truncate">{i.name}</p></button>
+                ))}
+              </div>
             </div>
           ) : isAddingNew ? (
-            <div className="space-y-5 bg-indigo-50/30 p-5 rounded-[32px] border border-indigo-100 animate-in zoom-in duration-300">
-               <div className="flex justify-between items-center">
-                <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest">직접 입력</h3>
-                <button onClick={() => setIsAddingNew(false)} className="text-[10px] text-gray-400 underline font-bold">돌아가기</button>
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식단 이름</label>
+                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 엄마표 볶음밥)" className="w-full p-4 rounded-2xl border bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold" />
               </div>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 엄마표 볶음밥)" className="w-full p-4 rounded-2xl border bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+              
               <div className="grid grid-cols-3 gap-3">
-                  <input type="number" placeholder="탄(g)" value={newCarbs} onChange={e => setNewCarbs(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
-                  <input type="number" placeholder="단(g)" value={newProtein} onChange={e => setNewProtein(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
-                  <input type="number" placeholder="지(g)" value={newFat} onChange={e => setNewFat(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold" />
-              </div>
-              <div className="pt-4 border-t border-indigo-100">
-                <label className="block text-[10px] font-black text-indigo-600 mb-2 uppercase">양 (g)</label>
-                <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-6 rounded-3xl border-2 border-indigo-500 text-4xl font-black text-center bg-white" />
-              </div>
-            </div>
-          ) : (
-            <div className="bg-indigo-50/50 p-6 rounded-[40px] flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-black text-indigo-600 text-2xl">{selectedIngredient?.name}</h3>
-                  <p className="text-xs text-gray-400">{selectedIngredient?.base_amount}g 당 {selectedIngredient?.kcal}kcal</p>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase text-center block">탄(g)</label>
+                  <input type="number" placeholder="0" value={newCarbs} onChange={e => setNewCarbs(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
-                {!editTarget && <button onClick={() => setSelectedIngredient(null)} className="text-xs text-indigo-400 font-bold underline bg-white px-3 py-1 rounded-full">변경</button>}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase text-center block">단(g)</label>
+                  <input type="number" placeholder="0" value={newProtein} onChange={e => setNewProtein(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase text-center block">지(g)</label>
+                  <input type="number" placeholder="0" value={newFat} onChange={e => setNewFat(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase">양 (g)</label>
-                <input autoFocus type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-6 bg-white rounded-3xl border-none ring-2 ring-indigo-500 text-4xl font-black focus:ring-4 outline-none text-center" />
+
+              <div className="pt-4 border-t border-indigo-100">
+                <div className="flex justify-between items-end mb-1 px-1">
+                  <label className="text-[10px] font-black text-indigo-600 uppercase">현재 섭취량 (g)</label>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">예상 칼로리:</span>
+                    <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
+                  </div>
+                </div>
+                <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-indigo-500 text-3xl font-black text-center bg-white outline-none" />
               </div>
-              {preview && (
-                <div className="grid grid-cols-4 gap-2 bg-indigo-600 p-4 rounded-3xl text-white text-center">
-                  <div><p className="text-[8px] opacity-70 uppercase font-black">kcal</p><p className="font-black text-lg">{Math.round(preview.kcal)}</p></div>
-                  <div><p className="text-[8px] opacity-70 uppercase font-black">탄</p><p className="font-bold">{Math.round(preview.carbs)}g</p></div>
-                  <div><p className="text-[8px] opacity-70 uppercase font-black">단</p><p className="font-bold">{Math.round(preview.protein)}g</p></div>
-                  <div><p className="text-[8px] opacity-70 uppercase font-black">지</p><p className="font-bold">{Math.round(preview.fat)}g</p></div>
+
+              {!editTarget && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <input 
+                    type="checkbox" 
+                    id="saveToIng" 
+                    checked={shouldSaveToIngredients} 
+                    onChange={e => setShouldSaveToIngredients(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  <label htmlFor="saveToIng" className="text-xs font-bold text-gray-500">이 식단 정보를 식재료 목록에도 저장할게요</label>
                 </div>
               )}
+              
+              {isAddingNew && !isDirectEntryEdit && (
+                <button onClick={() => { setIsAddingNew(false); setSelectedIngredient(null); }} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-indigo-500 underline transition-colors">식재료 검색으로 돌아가기</button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-indigo-50/50 p-6 rounded-[40px] space-y-6 animate-in slide-in-from-right-4">
+              <div className="flex justify-between items-start">
+                <h3 className="font-black text-indigo-600 text-2xl truncate mr-4">{selectedIngredient?.name}</h3>
+                {!editTarget && <button onClick={() => setSelectedIngredient(null)} className="text-xs text-indigo-400 font-bold underline shrink-0">변경</button>}
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-end px-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase">양 (g)</label>
+                  <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
+                </div>
+                <input autoFocus type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 bg-white rounded-3xl ring-2 ring-indigo-500 text-3xl font-black text-center outline-none" />
+              </div>
             </div>
           )}
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex space-x-3 sticky bottom-0">
+        <div className="p-6 border-t bg-gray-50 flex space-x-3">
           {editTarget && (
-            <button onClick={handleDelete} className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-sm">삭제</button>
+            <button 
+              onClick={() => setShowDeleteConfirm(true)} 
+              disabled={isDeleting}
+              className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-sm hover:bg-red-100 active:scale-95 disabled:opacity-30"
+            >
+              삭제
+            </button>
           )}
-          {!editTarget && (
-            <button disabled={!preview} onClick={() => handleSave(true)} className="flex-1 py-4 px-2 border-2 border-indigo-600 text-indigo-600 font-black rounded-2xl disabled:opacity-30 transition-all text-sm">+ 계속 추가</button>
-          )}
-          <button disabled={!preview} onClick={() => handleSave(false)} className="flex-1 py-4 px-2 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 disabled:opacity-30 transition-all text-sm">
-            {editTarget ? '기록 업데이트' : '저장 후 닫기'}
+          <button 
+            disabled={!preview || isDeleting} 
+            onClick={() => handleSave(false)} 
+            className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
+          >
+            {editTarget ? '수정 완료' : '저장하기'}
           </button>
         </div>
       </div>

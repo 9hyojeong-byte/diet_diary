@@ -8,7 +8,8 @@ export enum MealType {
 
 export enum MealStatus {
   PLANNED = 'PLANNED',
-  ACTUAL = 'ACTUAL'
+  ACTUAL = 'ACTUAL',
+  CANCELED = 'CANCELED'
 }
 
 export interface Ingredient {
@@ -27,7 +28,7 @@ export interface Ingredient {
 export interface MealRecord {
   uuid: string;
   type: MealType;
-  status: MealStatus; // 예정(PLANNED) 또는 실제(ACTUAL)
+  status: MealStatus; // 예정(PLANNED), 실제(ACTUAL), 취소(CANCELED)
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   ingredient_uuid: string;

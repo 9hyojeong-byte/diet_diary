@@ -14,7 +14,6 @@ import {
   fetchInitialData, 
   saveMealToGAS, 
   updateMealInGAS, 
-  deleteMealFromGAS,
   saveIngredientToGAS, 
   updateIngredientInGAS,
   deleteIngredientFromGAS,
@@ -46,13 +45,9 @@ const App: React.FC = () => {
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
-  // 뒤로가기 버튼 제어 (History Trap)
   useEffect(() => {
-    // 초기 스택 추가
     window.history.pushState({ noBackExitsApp: true }, '');
-
     const handlePopState = (event: PopStateEvent) => {
-      // 사이드바나 모달이 열려있다면 그것부터 닫기
       if (isSidebarOpen) {
         setIsSidebarOpen(false);
         window.history.pushState({ noBackExitsApp: true }, '');
@@ -68,11 +63,8 @@ const App: React.FC = () => {
         window.history.pushState({ noBackExitsApp: true }, '');
         return;
       }
-
-      // 아무것도 안 열려있을 때 뒤로가기 누르면 종료 모달 띄우기
       setIsExitModalOpen(true);
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSidebarOpen, isInputOpen, adviceModalOpen]);
@@ -94,7 +86,10 @@ const App: React.FC = () => {
   }, []);
 
   const filteredMeals = useMemo(() => {
-    return meals.filter(m => String(m.date).startsWith(selectedDate));
+    return meals.filter(m => 
+      String(m.date).startsWith(selectedDate) && 
+      m.status !== MealStatus.CANCELED
+    );
   }, [meals, selectedDate]);
 
   const summary = useMemo(() => {
@@ -120,23 +115,20 @@ const App: React.FC = () => {
   }, [filteredMeals]);
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
-    const isUpdate = meals.some(m => m.uuid === newMeal.uuid);
-    
+    const isUpdate = meals.some(m => String(m.uuid) === String(newMeal.uuid));
     if (isUpdate) {
-      setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...newMeal, pending: true } : m));
+      setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m));
     } else {
       setMeals(prev => [...prev, { ...newMeal, pending: true }]);
     }
-    
     if (newIngredient) {
       setIngredients(prev => [...prev, newIngredient]);
       saveIngredientToGAS(newIngredient);
     }
-
     try {
       const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
       if (success) {
-        setMeals(prev => prev.map(m => m.uuid === newMeal.uuid ? { ...m, pending: false } : m));
+        setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
       }
     } catch (error) {
       console.error("Meal save/update failed", error);
@@ -144,50 +136,57 @@ const App: React.FC = () => {
   }, [meals]);
 
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
-    const target = meals.find(m => m.uuid === uuid);
+    const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target || target.status === status) return;
-
     const updatedMeal: MealRecord = { 
       ...target, 
       status,
       time: status === MealStatus.ACTUAL ? getKSTTime() : target.time,
       pending: true 
     };
-
-    setMeals(prev => prev.map(m => m.uuid === uuid ? updatedMeal : m));
-
+    setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
       const success = await updateMealInGAS(updatedMeal);
       if (success) {
-        setMeals(prev => prev.map(m => m.uuid === uuid ? { ...updatedMeal, pending: false } : m));
+        setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
       }
     } catch (err) {
-      setMeals(prev => prev.map(m => m.uuid === uuid ? { ...target, pending: false } : m));
+      setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...target, pending: false } : m));
     }
   }, [meals]);
 
-  const onDeleteMeal = useCallback(async (uuid: string) => {
-    if (!confirm('기록을 삭제할까요?')) return;
+  const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
+    const target = meals.find(m => String(m.uuid) === String(uuid));
+    if (!target) return false;
     const previousMeals = [...meals];
-    setMeals(prev => prev.filter(m => m.uuid !== uuid));
+    
+    // UI 낙관적 업데이트: 상태를 CANCELED로 변경 (filteredMeals에서 즉시 사라짐)
+    setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
     
     try {
-      const success = await deleteMealFromGAS(uuid);
-      if (!success) setMeals(previousMeals);
+      const success = await updateMealInGAS({ ...target, status: MealStatus.CANCELED });
+      if (success) {
+        setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...m, pending: false } : m));
+        return true;
+      } else {
+        setMeals(previousMeals);
+        return false;
+      }
     } catch (err) {
       setMeals(previousMeals);
+      return false;
     }
   }, [meals]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
-    const target = ingredients.find(i => i.uuid === uuid);
+    const target = ingredients.find(i => String(i.uuid) === String(uuid));
     if (!target) return;
     const nextState = !target.is_bookmarked;
-    setIngredients(prev => prev.map(i => i.uuid === uuid ? { ...i, is_bookmarked: nextState } : i));
+    setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: nextState } : i));
     try {
       await updateIngredientBookmark(uuid, nextState);
     } catch (err) {
-      setIngredients(prev => prev.map(i => i.uuid === uuid ? { ...i, is_bookmarked: !nextState } : i));
+      setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: !nextState } : i));
     }
   }, [ingredients]);
 
@@ -197,7 +196,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpdateIngredient = useCallback(async (ing: Ingredient) => {
-    setIngredients(prev => prev.map(i => i.uuid === ing.uuid ? ing : i));
+    setIngredients(prev => prev.map(i => String(i.uuid) === String(ing.uuid) ? ing : i));
     try {
       await updateIngredientInGAS(ing);
     } catch (err) {
@@ -207,7 +206,7 @@ const App: React.FC = () => {
 
   const handleDeleteIngredient = useCallback(async (uuid: string) => {
     const previous = [...ingredients];
-    setIngredients(prev => prev.filter(i => i.uuid !== uuid));
+    setIngredients(prev => prev.filter(i => String(i.uuid) !== String(uuid)));
     try {
       const success = await deleteIngredientFromGAS(uuid);
       if (!success) setIngredients(previous);
@@ -359,7 +358,6 @@ const App: React.FC = () => {
           isOpen={isExitModalOpen}
           onClose={() => {
             setIsExitModalOpen(false);
-            // 모달을 닫을 때 다시 히스토리 트랩을 설치
             window.history.pushState({ noBackExitsApp: true }, '');
           }}
         />
