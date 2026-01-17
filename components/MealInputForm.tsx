@@ -43,19 +43,28 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [newFat, setNewFat] = useState(editTarget?.fat.toString() || '');
   const [shouldSaveToIngredients, setShouldSaveToIngredients] = useState(false);
 
+  // 검색 필터링 로직
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    return ingredients.filter(i => 
+      i.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 20); // 성능을 위해 상위 20개만 표시
+  }, [ingredients, searchTerm]);
+
+  const bookmarks = useMemo(() => {
+    return ingredients.filter(i => i.is_bookmarked).slice(0, 10);
+  }, [ingredients]);
+
   // 커스텀 삭제 확인 UI 상태
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    // 수동 입력(신규/수정 모두) 시 탄단지 변경에 따른 칼로리 자동 계산
     if (isAddingNew) {
       const c = parseFloat(newCarbs) || 0;
       const p = parseFloat(newProtein) || 0;
       const f = parseFloat(newFat) || 0;
       const calculated = (c * 4) + (p * 4) + (f * 9);
-      
-      // 값이 유효할 때만 업데이트 (모두 0일 때는 빈 칼로리 허용)
       if (calculated >= 0) {
         setNewKcal(calculated.toFixed(1));
       }
@@ -66,7 +75,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     if (isAddingNew) {
       const currentAmount = parseFloat(amount) || 0;
       const currentBase = parseFloat(newBase) || 1;
-      // 0으로 나누기 방지
       const factor = currentBase === 0 ? 0 : currentAmount / currentBase;
       return {
         kcal: (parseFloat(newKcal) || 0) * factor,
@@ -132,18 +140,12 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     if (editTarget && onDelete) {
       setIsDeleting(true);
       setShowDeleteConfirm(false); 
-      
       try {
         const success = await onDelete(editTarget.uuid);
-        if (success) {
-          onClose();
-        } else {
-          setIsDeleting(false);
-          alert("삭제 처리에 실패했습니다. 다시 시도해 주세요.");
-        }
+        if (success) onClose();
+        else setIsDeleting(false);
       } catch (err) {
         setIsDeleting(false);
-        console.error("Delete failed:", err);
       }
     }
   };
@@ -156,25 +158,13 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
         {showDeleteConfirm && (
           <div className="absolute inset-0 z-[130] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-200">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center text-red-500 mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </div>
             <h3 className="text-2xl font-black text-gray-900 mb-2">정말 삭제할까요?</h3>
             <p className="text-gray-500 font-medium mb-8">기록된 영양 데이터가 통계에서 제외됩니다.</p>
             <div className="flex flex-col w-full space-y-3">
-              <button 
-                onClick={confirmDelete}
-                className="w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg shadow-red-100 active:scale-95 transition-all"
-              >
-                네, 삭제할게요
-              </button>
-              <button 
-                onClick={() => setShowDeleteConfirm(false)}
-                className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl active:scale-95 transition-all"
-              >
-                아니오, 유지할게요
-              </button>
+              <button onClick={confirmDelete} className="w-full py-4 bg-red-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all">네, 삭제할게요</button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl active:scale-95 transition-all">아니오, 유지할게요</button>
             </div>
           </div>
         )}
@@ -194,18 +184,58 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           </button>
         </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto">
+        <div className="p-6 space-y-6 overflow-y-auto min-h-[300px]">
           {!isAddingNew && !selectedIngredient ? (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in">
               <div className="relative">
-                <input autoFocus type="text" placeholder="식재료 검색..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium" />
+                <input 
+                  autoFocus 
+                  type="text" 
+                  placeholder="식재료 검색..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium" 
+                />
                 <button onClick={() => setIsAddingNew(true)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-600 underline">직접 입력</button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {ingredients.filter(i => i.is_bookmarked).slice(0, 10).map(i => (
-                  <button key={i.uuid} onClick={() => setSelectedIngredient(i)} className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-left hover:bg-indigo-100 transition-colors"><p className="text-xs font-bold text-indigo-900 truncate">{i.name}</p></button>
-                ))}
-              </div>
+
+              {searchTerm.trim() === '' ? (
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">자주 찾는 식재료</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {bookmarks.length > 0 ? bookmarks.map(i => (
+                      <button key={i.uuid} onClick={() => setSelectedIngredient(i)} className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-left hover:bg-indigo-100 transition-colors flex items-center space-x-2">
+                        <span className="text-amber-500 text-xs">⭐</span>
+                        <p className="text-xs font-bold text-indigo-900 truncate">{i.name}</p>
+                      </button>
+                    )) : (
+                      <p className="col-span-2 text-center py-4 text-xs text-gray-300 italic">즐겨찾기한 식재료가 없습니다.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-1">검색 결과</h3>
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
+                    {searchResults.length > 0 ? searchResults.map(i => (
+                      <button key={i.uuid} onClick={() => setSelectedIngredient(i)} className="w-full p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm hover:border-indigo-300 transition-colors">
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{i.name}</p>
+                          <p className="text-[10px] text-gray-400">{i.base_amount}g 기준 {i.kcal}kcal</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-indigo-600">P {i.protein}g</p>
+                        </div>
+                      </button>
+                    )) : (
+                      <div className="text-center py-10 bg-gray-50 rounded-2xl">
+                        <p className="text-xs text-gray-400 mb-3">검색 결과가 없습니다.</p>
+                        <button onClick={() => { setIsAddingNew(true); setNewName(searchTerm); }} className="text-xs font-black text-indigo-600 underline">'{searchTerm}' 직접 등록하기</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : isAddingNew ? (
             <div className="space-y-4 animate-in fade-in duration-300">
@@ -213,7 +243,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                 <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식단 이름</label>
                 <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 엄마표 볶음밥)" className="w-full p-4 rounded-2xl border bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold" />
               </div>
-              
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase text-center block">탄(g)</label>
@@ -228,7 +257,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                   <input type="number" placeholder="0" value={newFat} onChange={e => setNewFat(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
               </div>
-
               <div className="pt-4 border-t border-indigo-100">
                 <div className="flex justify-between items-end mb-1 px-1">
                   <label className="text-[10px] font-black text-indigo-600 uppercase">현재 섭취량 (g)</label>
@@ -239,22 +267,14 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                 </div>
                 <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-indigo-500 text-3xl font-black text-center bg-white outline-none" />
               </div>
-
               {!editTarget && (
                 <div className="flex items-center space-x-2 pt-2">
-                  <input 
-                    type="checkbox" 
-                    id="saveToIng" 
-                    checked={shouldSaveToIngredients} 
-                    onChange={e => setShouldSaveToIngredients(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded"
-                  />
+                  <input type="checkbox" id="saveToIng" checked={shouldSaveToIngredients} onChange={e => setShouldSaveToIngredients(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
                   <label htmlFor="saveToIng" className="text-xs font-bold text-gray-500">이 식단 정보를 식재료 목록에도 저장할게요</label>
                 </div>
               )}
-              
               {isAddingNew && !isDirectEntryEdit && (
-                <button onClick={() => { setIsAddingNew(false); setSelectedIngredient(null); }} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-indigo-500 underline transition-colors">식재료 검색으로 돌아가기</button>
+                <button onClick={() => { setIsAddingNew(false); setSelectedIngredient(null); setSearchTerm(''); }} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-indigo-500 underline transition-colors">식재료 검색으로 돌아가기</button>
               )}
             </div>
           ) : (
@@ -276,19 +296,9 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
 
         <div className="p-6 border-t bg-gray-50 flex space-x-3">
           {editTarget && (
-            <button 
-              onClick={() => setShowDeleteConfirm(true)} 
-              disabled={isDeleting}
-              className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-sm hover:bg-red-100 active:scale-95 disabled:opacity-30"
-            >
-              삭제
-            </button>
+            <button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting} className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-sm hover:bg-red-100 active:scale-95 disabled:opacity-30">삭제</button>
           )}
-          <button 
-            disabled={!preview || isDeleting} 
-            onClick={() => handleSave(false)} 
-            className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
-          >
+          <button disabled={!preview || isDeleting} onClick={() => handleSave(false)} className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm">
             {editTarget ? '수정 완료' : '저장하기'}
           </button>
         </div>
