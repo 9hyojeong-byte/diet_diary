@@ -10,7 +10,22 @@ interface CalendarProps {
 
 const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [viewMonth, setViewMonth] = useState(new Date(selectedDate));
+
+  // 로컬 날짜 객체 생성을 위한 헬퍼 (타임존 오류 방지)
+  const parseLocalDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  // 로컬 YYYY-MM-DD 문자열 반환 (toISOString 대용)
+  const toLocalDateString = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const [viewMonth, setViewMonth] = useState(parseLocalDate(selectedDate));
 
   const getKSTToday = () => {
     const now = new Date();
@@ -34,15 +49,15 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
 
   // 선택된 날짜가 포함된 주의 월요일~일요일 구하기
   const currentWeek = useMemo(() => {
-    const curr = new Date(selectedDate);
+    const curr = parseLocalDate(selectedDate);
     const day = curr.getDay(); // 0(일) ~ 6(토)
     // 월요일 시작으로 변환 (월:0, ..., 일:6)
-    const diff = curr.getDate() - (day === 0 ? 6 : day - 1);
+    const diffToMonday = day === 0 ? 6 : day - 1;
     
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(curr);
-      d.setDate(diff + i);
-      return d.toISOString().split('T')[0];
+      d.setDate(curr.getDate() - diffToMonday + i);
+      return toLocalDateString(d);
     });
   }, [selectedDate]);
 
@@ -60,21 +75,19 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
-      return d.toISOString().split('T')[0];
+      return toLocalDateString(d);
     });
   }, [viewMonth]);
 
   const changeMonth = (offset: number) => {
-    const next = new Date(viewMonth);
-    next.setMonth(next.getMonth() + offset);
+    const next = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + offset, 1);
     setViewMonth(next);
   };
 
   const handleGoToday = () => {
     const today = getKSTToday();
     onSelectDate(today);
-    setViewMonth(new Date(today));
-    // 선택한 날짜가 잘 보이도록 오늘로 가면 리스트 뷰를 유지하거나 상황에 맞게 처리
+    setViewMonth(parseLocalDate(today));
   };
 
   return (
@@ -133,7 +146,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
       <div className={`px-4 pb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-20 opacity-100'}`}>
         <div className="grid grid-cols-7 gap-1 mt-1">
           {(isExpanded ? monthDays : currentWeek).map((date) => {
-            const d = new Date(date);
+            const d = parseLocalDate(date);
             const isSelected = date === selectedDate;
             const isToday = date === todayStr;
             const hasMeal = mealDates.has(date);
@@ -145,7 +158,10 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
                 key={date}
                 onClick={() => {
                   onSelectDate(date);
-                  setViewMonth(new Date(date));
+                  // 월 달력 뷰에서는 선택한 날짜의 달로 뷰포커스 이동하지 않고 날짜만 선택
+                  if (!isExpanded) {
+                    setViewMonth(parseLocalDate(date));
+                  }
                 }}
                 className={`
                   relative flex flex-col items-center justify-center py-2 rounded-2xl transition-all h-12
