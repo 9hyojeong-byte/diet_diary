@@ -60,6 +60,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    // 수동 입력(신규/수정 모두) 시 탄단지 변경에 따른 칼로리 자동 계산
     if (isAddingNew) {
       const c = parseFloat(newCarbs) || 0;
       const p = parseFloat(newProtein) || 0;
@@ -185,6 +186,44 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto min-h-[300px]">
+          {/* 식사 종류 및 시간 설정 섹션 */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-3xl">
+            <div className="flex bg-gray-200/50 p-1 rounded-2xl">
+              {[MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER].map((mType) => (
+                <button
+                  key={mType}
+                  onClick={() => setType(mType)}
+                  className={`flex-1 py-2.5 text-xs rounded-xl transition-all font-black ${
+                    type === mType ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'
+                  }`}
+                >
+                  {mType}
+                </button>
+              ))}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative">
+                <label className="absolute left-3 top-1 text-[8px] font-black text-gray-400 uppercase">날짜</label>
+                <input 
+                  type="date" 
+                  value={date} 
+                  onChange={e => setDate(e.target.value)} 
+                  className="w-full pt-4 pb-2 px-3 rounded-xl border-none ring-1 ring-gray-200 bg-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
+                />
+              </div>
+              <div className="relative">
+                <label className="absolute left-3 top-1 text-[8px] font-black text-gray-400 uppercase">시간</label>
+                <input 
+                  type="time" 
+                  value={time} 
+                  onChange={e => setTime(e.target.value)} 
+                  className="w-full pt-4 pb-2 px-3 rounded-xl border-none ring-1 ring-gray-200 bg-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
+                />
+              </div>
+            </div>
+          </div>
+
           {!isAddingNew && !selectedIngredient ? (
             <div className="space-y-6 animate-in fade-in">
               <div className="relative">

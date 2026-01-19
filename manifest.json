@@ -1,6 +1,6 @@
 {
   "name": "Kuku's Smart Diet",
-  "short_name": "KukuDiet",
+  "short_name": "쿠쿠식단기록",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -8,12 +8,12 @@
   "description": "식단 관리 및 AI 영양 추천 앱",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3426/3426647.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/857/857718.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3426/3426647.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/857/857718.png",
       "sizes": "512x512",
       "type": "image/png"
     }
