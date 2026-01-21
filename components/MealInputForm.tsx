@@ -25,7 +25,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [date, setDate] = useState(editTarget?.date || selectedDate);
   const [time, setTime] = useState(editTarget?.time || getKSTTime());
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
-  const [status, setStatus] = useState<MealStatus>(editTarget?.status || MealStatus.ACTUAL);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
@@ -95,7 +94,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     };
   }, [selectedIngredient, amount, isAddingNew, newBase, newKcal, newCarbs, newProtein, newFat]);
 
-  const handleSave = (keepOpen: boolean) => {
+  const handleSave = (finalStatus: MealStatus) => {
     let finalIngredientUuid = selectedIngredient?.uuid || 'direct-entry';
     let finalIngredientName = isAddingNew ? (newName || '직접 입력 식단') : (selectedIngredient?.name || '식재료 정보 없음');
     let newIngData: Ingredient | undefined;
@@ -121,7 +120,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     onSave({
       uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
-      status,
+      status: finalStatus,
       date,
       time,
       ingredient_name: finalIngredientName,
@@ -185,7 +184,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           </button>
         </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto min-h-[300px]">
+        <div className="p-6 pb-3 space-y-4 overflow-y-auto min-h-[300px]">
           {/* 식사 종류 및 시간 설정 섹션 */}
           <div className="space-y-4 p-4 bg-gray-50 rounded-3xl">
             <div className="flex bg-gray-200/50 p-1 rounded-2xl">
@@ -296,7 +295,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                   <input type="number" placeholder="0" value={newFat} onChange={e => setNewFat(e.target.value)} className="w-full p-3 rounded-xl border text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
               </div>
-              <div className="pt-4 border-t border-indigo-100">
+              <div className="pt-2 border-t border-indigo-100">
                 <div className="flex justify-between items-end mb-1 px-1">
                   <label className="text-[10px] font-black text-indigo-600 uppercase">현재 섭취량 (g)</label>
                   <div className="text-right">
@@ -317,7 +316,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               )}
             </div>
           ) : (
-            <div className="bg-indigo-50/50 p-6 rounded-[40px] space-y-6 animate-in slide-in-from-right-4">
+            <div className="bg-indigo-50/50 p-5 pb-4 rounded-[40px] space-y-4 animate-in slide-in-from-right-4">
               <div className="flex justify-between items-start">
                 <h3 className="font-black text-indigo-600 text-2xl truncate mr-4">{selectedIngredient?.name}</h3>
                 {!editTarget && <button onClick={() => setSelectedIngredient(null)} className="text-xs text-indigo-400 font-bold underline shrink-0">변경</button>}
@@ -333,13 +332,32 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           )}
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex space-x-3">
-          {editTarget && (
-            <button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting} className="px-6 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-sm hover:bg-red-100 active:scale-95 disabled:opacity-30">삭제</button>
-          )}
-          <button disabled={!preview || isDeleting} onClick={() => handleSave(false)} className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm">
-            {editTarget ? '수정 완료' : '저장하기'}
-          </button>
+        <div className="p-6 pt-3 border-t bg-gray-50 flex flex-col space-y-3">
+          <div className="flex space-x-2">
+            {editTarget && (
+              <button 
+                onClick={() => setShowDeleteConfirm(true)} 
+                disabled={isDeleting} 
+                className="px-4 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-xs hover:bg-red-100 active:scale-95 disabled:opacity-30"
+              >
+                삭제
+              </button>
+            )}
+            <button 
+              disabled={!preview || isDeleting} 
+              onClick={() => handleSave(MealStatus.PLANNED)} 
+              className="flex-1 py-4 bg-white text-gray-500 border border-gray-200 font-black rounded-2xl active:scale-95 disabled:opacity-30 transition-all text-sm"
+            >
+              예정으로 저장
+            </button>
+            <button 
+              disabled={!preview || isDeleting} 
+              onClick={() => handleSave(MealStatus.ACTUAL)} 
+              className="flex-[1.5] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
+            >
+              {editTarget ? '수정 완료' : '식단 저장'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
