@@ -187,8 +187,12 @@ const SwipeableMealCard: React.FC<{
           <p className={`font-black tracking-tight ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>
             {Math.round(meal.kcal)} <span className="text-[9px] font-bold opacity-50 ml-0.5">kcal</span>
           </p>
-          <div className="flex space-x-2 text-[10px] text-gray-400 justify-end font-bold">
+          <div className="flex items-center space-x-1 text-[9px] text-gray-400 justify-end font-bold">
+            <span className={!isPlanned ? 'text-orange-500/80' : ''}>C {Math.round(meal.carbs || 0)}g</span>
+            <span className="opacity-30 px-0.5">·</span>
             <span className={!isPlanned ? 'text-emerald-500/80' : ''}>P {Math.round(meal.protein || 0)}g</span>
+            <span className="opacity-30 px-0.5">·</span>
+            <span className={!isPlanned ? 'text-blue-500/80' : ''}>F {Math.round(meal.fat || 0)}g</span>
           </div>
         </div>
       </div>

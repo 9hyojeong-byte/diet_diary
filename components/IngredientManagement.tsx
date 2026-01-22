@@ -91,7 +91,7 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
                 </div>
               </div>
               <div className="text-right flex flex-col items-end">
-                <div className="flex space-x-2 text-[10px] font-bold text-gray-400 uppercase">
+                <div className="flex space-x-2 text-[10px] font-bold text-gray-400">
                   <span className="text-indigo-600">P {ing.protein}g</span>
                   <span>C {ing.carbs}g</span>
                 </div>
@@ -153,7 +153,7 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+      <div className="bg-white w-full max-sm rounded-3xl overflow-hidden shadow-2xl">
         <div className="p-6 bg-indigo-600 text-white">
           <h3 className="text-xl font-bold">{target ? '식재료 수정' : '신규 식재료 등록'}</h3>
         </div>

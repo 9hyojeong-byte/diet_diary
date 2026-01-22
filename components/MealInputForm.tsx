@@ -298,8 +298,10 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               <div className="pt-2 border-t border-indigo-100">
                 <div className="flex justify-between items-end mb-1 px-1">
                   <label className="text-[10px] font-black text-indigo-600 uppercase">현재 섭취량 (g)</label>
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">예상 칼로리:</span>
+                  <div className="text-right flex flex-col items-end">
+                    <span className="text-[10px] font-bold text-gray-400">
+                      C {Math.round(preview?.carbs || 0)}g · P {Math.round(preview?.protein || 0)}g · F {Math.round(preview?.fat || 0)}g
+                    </span>
                     <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
                   </div>
                 </div>
@@ -324,7 +326,12 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               <div className="space-y-2">
                 <div className="flex justify-between items-end px-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase">양 (g)</label>
-                  <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
+                  <div className="text-right flex flex-col items-end">
+                    <span className="text-[9px] font-bold text-indigo-400">
+                      C {Math.round(preview?.carbs || 0)}g · P {Math.round(preview?.protein || 0)}g · F {Math.round(preview?.fat || 0)}g
+                    </span>
+                    <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
+                  </div>
                 </div>
                 <input autoFocus type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 bg-white rounded-3xl ring-2 ring-indigo-500 text-3xl font-black text-center outline-none" />
               </div>
