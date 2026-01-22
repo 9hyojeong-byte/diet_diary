@@ -223,7 +223,10 @@ const App: React.FC = () => {
   };
 
   const handleCopyDiet = useCallback(() => {
-    const actualMeals = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
+    const actualMeals = filteredMeals
+      .filter(m => m.status === MealStatus.ACTUAL)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
     if (actualMeals.length === 0) {
       alert("오늘 완료된 식단 기록이 없습니다.");
       return;
