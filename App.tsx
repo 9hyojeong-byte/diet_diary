@@ -222,6 +222,34 @@ const App: React.FC = () => {
     setIsInputOpen(true);
   };
 
+  const handleCopyDiet = useCallback(() => {
+    const actualMeals = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
+    if (actualMeals.length === 0) {
+      alert("오늘 완료된 식단 기록이 없습니다.");
+      return;
+    }
+
+    let text = `[${selectedDate} 식단 기록]\n\n`;
+    actualMeals.forEach((meal, idx) => {
+      text += `${idx + 1}. ${meal.type} (${meal.time})\n`;
+      text += `- 메뉴: ${meal.ingredient_name || '식재료 정보 없음'}\n`;
+      text += `- 열량: ${Math.round(meal.kcal)} kcal\n`;
+      text += `- 탄수화물: ${Math.round(meal.carbs)}g\n`;
+      text += `- 단백질: ${Math.round(meal.protein)}g\n`;
+      text += `- 지방: ${Math.round(meal.fat)}g\n\n`;
+    });
+
+    text += `총 섭취: ${Math.round(summary.actual.kcal)} kcal\n`;
+    text += `(탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g)`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert("식단 기록이 클립보드에 복사되었습니다! 📋");
+    }).catch(err => {
+      console.error("Copy failed", err);
+      alert("복사에 실패했습니다.");
+    });
+  }, [filteredMeals, selectedDate, summary]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white">
@@ -289,13 +317,23 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            <button 
-              onClick={() => setAdviceModalOpen(true)}
-              className="w-full mt-8 py-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center space-x-2"
-            >
-              <span className="text-xl">✨</span>
-              <span>AI 영양 추천 받기</span>
-            </button>
+            <div className="pt-2 space-y-3">
+              <button 
+                onClick={() => setAdviceModalOpen(true)}
+                className="w-full py-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <span className="text-xl">✨</span>
+                <span>AI 영양 추천 받기</span>
+              </button>
+              
+              <button 
+                onClick={handleCopyDiet}
+                className="w-full py-4 bg-white text-indigo-600 border-2 border-indigo-50 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <span className="text-xl">📋</span>
+                <span>식단 복사하기</span>
+              </button>
+            </div>
           </div>
         ) : currentView === 'ingredients' ? (
           <IngredientManagement 
