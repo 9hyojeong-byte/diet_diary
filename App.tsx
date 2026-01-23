@@ -225,7 +225,15 @@ const App: React.FC = () => {
   const handleCopyDiet = useCallback(() => {
     const actualMeals = filteredMeals
       .filter(m => m.status === MealStatus.ACTUAL)
-      .sort((a, b) => a.time.localeCompare(b.time));
+      .sort((a, b) => {
+        // 시간 정렬 시 HH:mm 형식을 보장하기 위해 한 자리 수 시간(예: 8:00) 앞에 '0'을 패딩함
+        const padTime = (t: string) => {
+          if (!t.includes(':')) return t;
+          const [h, m] = t.split(':');
+          return `${h.padStart(2, '0')}:${m}`;
+        };
+        return padTime(a.time).localeCompare(padTime(b.time));
+      });
 
     if (actualMeals.length === 0) {
       alert("오늘 완료된 식단 기록이 없습니다.");
