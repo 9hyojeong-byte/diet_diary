@@ -388,6 +388,7 @@ const App: React.FC = () => {
           prefilledType={prefilledType}
           editTarget={editMealTarget}
           ingredients={ingredients}
+          meals={meals}
           onSave={onSaveMeal}
           onDelete={onDeleteMeal}
         />
