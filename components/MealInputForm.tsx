@@ -10,11 +10,13 @@ interface Props {
   editTarget?: MealRecord | null;
   ingredients: Ingredient[];
   meals: MealRecord[];
+  isAdmin: boolean;
   onSave: (meal: MealRecord, ingredient?: Ingredient) => void;
   onDelete?: (uuid: string) => Promise<boolean>;
+  trialMessage?: string;
 }
 
-const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, onSave, onDelete }) => {
+const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onDelete, trialMessage }) => {
   const getKSTTime = () => {
     const now = new Date();
     const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
@@ -42,26 +44,17 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [newFat, setNewFat] = useState(editTarget?.fat.toString() || '');
   const [shouldSaveToIngredients, setShouldSaveToIngredients] = useState(false);
 
-  // 어제 먹은 동일 타입의 '모든' 식단 찾기 (복수 노출 대응)
   const yesterdayMeals = useMemo(() => {
     if (editTarget) return []; 
-    
     const current = new Date(date);
     current.setDate(current.getDate() - 1);
     const yesterdayStr = current.toISOString().split('T')[0];
-    
-    return meals.filter(m => 
-      m.date === yesterdayStr && 
-      m.type === type && 
-      m.status === MealStatus.ACTUAL
-    );
+    return meals.filter(m => m.date === yesterdayStr && m.type === type && m.status === MealStatus.ACTUAL);
   }, [meals, date, type, editTarget]);
 
-  // 특정 어제 식단 선택 핸들러
   const handleSelectYesterdayMeal = useCallback((meal: MealRecord) => {
     const isDirect = meal.ingredient_uuid === 'direct-entry';
     const mealAmount = meal.amount.toString();
-
     if (isDirect) {
       setIsAddingNew(true);
       setNewName(meal.ingredient_name || '');
@@ -92,9 +85,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    return ingredients.filter(i => 
-      i.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 20);
+    return ingredients.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 20);
   }, [ingredients, searchTerm]);
 
   const bookmarks = useMemo(() => {
@@ -110,9 +101,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       const p = parseFloat(newProtein) || 0;
       const f = parseFloat(newFat) || 0;
       const calculated = (c * 4) + (p * 4) + (f * 9);
-      if (calculated >= 0) {
-        setNewKcal(calculated.toFixed(1));
-      }
+      if (calculated >= 0) setNewKcal(calculated.toFixed(1));
     }
   }, [newCarbs, newProtein, newFat, isAddingNew]);
 
@@ -140,6 +129,10 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   }, [selectedIngredient, amount, isAddingNew, newBase, newKcal, newCarbs, newProtein, newFat]);
 
   const handleSave = (finalStatus: MealStatus) => {
+    if (!isAdmin) {
+      alert(trialMessage);
+      return;
+    }
     let finalIngredientUuid = selectedIngredient?.uuid || 'direct-entry';
     let finalIngredientName = isAddingNew ? (newName || '직접 입력 식단') : (selectedIngredient?.name || '식재료 정보 없음');
     let newIngData: Ingredient | undefined;
@@ -182,6 +175,10 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   };
 
   const confirmDelete = async () => {
+    if (!isAdmin) {
+      alert(trialMessage);
+      return;
+    }
     if (editTarget && onDelete) {
       setIsDeleting(true);
       setShowDeleteConfirm(false); 
@@ -415,7 +412,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           <div className="flex space-x-2">
             {editTarget && (
               <button 
-                onClick={() => setShowDeleteConfirm(true)} 
+                onClick={() => isAdmin ? setShowDeleteConfirm(true) : alert(trialMessage)} 
                 disabled={isDeleting} 
                 className="px-4 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-xs hover:bg-red-100 active:scale-95 disabled:opacity-30"
               >

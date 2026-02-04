@@ -6,13 +6,14 @@ interface Props {
   type: MealType;
   meals: MealRecord[];
   ingredients: Ingredient[];
+  isAdmin: boolean;
   onAdd: () => void;
   onEdit: (meal: MealRecord) => void;
   onDelete: (uuid: string) => Promise<boolean>;
   onSetStatus: (uuid: string, status: MealStatus) => void;
 }
 
-const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit, onDelete, onSetStatus }) => {
+const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd, onEdit, onDelete, onSetStatus }) => {
   const getIngredientDisplayName = (meal: MealRecord) => {
     if (meal.ingredient_name) return meal.ingredient_name;
     if (!meal.ingredient_uuid) return '식재료 정보 없음';
@@ -70,6 +71,7 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit,
               key={meal.uuid} 
               meal={meal} 
               displayName={getIngredientDisplayName(meal)}
+              isAdmin={isAdmin}
               onEdit={onEdit}
               onSetStatus={onSetStatus}
             />
@@ -83,9 +85,10 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, onAdd, onEdit,
 const SwipeableMealCard: React.FC<{ 
   meal: MealRecord; 
   displayName: string;
+  isAdmin: boolean;
   onEdit: (meal: MealRecord) => void;
   onSetStatus: (uuid: string, status: MealStatus) => void;
-}> = ({ meal, displayName, onEdit, onSetStatus }) => {
+}> = ({ meal, displayName, isAdmin, onEdit, onSetStatus }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const bgActualRef = useRef<HTMLDivElement>(null);
   const bgPlannedRef = useRef<HTMLDivElement>(null);
@@ -111,6 +114,9 @@ const SwipeableMealCard: React.FC<{
   };
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if (!isAdmin) {
+      return; // 터치 시작은 허용하되 스와이프 동작은 onTouchMove에서 제어
+    }
     if (meal.pending) return;
     startX.current = e.touches[0].clientX;
     isDragging.current = true;
@@ -118,12 +124,17 @@ const SwipeableMealCard: React.FC<{
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
+    if (!isAdmin) return;
     if (!isDragging.current) return;
     currentDiff.current = e.touches[0].clientX - startX.current;
     requestAnimationFrame(() => updateStyles(currentDiff.current));
   };
 
   const onTouchEnd = () => {
+    if (!isAdmin) {
+       // 일반 사용자가 클릭 시 수정 시도로 간주하여 팝업 (App.tsx에서 onEdit 호출 시 처리됨)
+       return;
+    }
     if (!isDragging.current) return;
     isDragging.current = false;
     const dragX = currentDiff.current * 0.6;

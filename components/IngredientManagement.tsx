@@ -4,13 +4,15 @@ import { Ingredient } from '../types';
 
 interface Props {
   ingredients: Ingredient[];
+  isAdmin: boolean;
   onToggleBookmark: (uuid: string) => void;
   onAddIngredient: (ing: Ingredient) => void;
   onUpdateIngredient: (ing: Ingredient) => void;
   onDeleteIngredient: (uuid: string) => void;
+  trialMessage?: string;
 }
 
-const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, onAddIngredient, onUpdateIngredient, onDeleteIngredient }) => {
+const IngredientManagement: React.FC<Props> = ({ ingredients, isAdmin, onToggleBookmark, onAddIngredient, onUpdateIngredient, onDeleteIngredient, trialMessage }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editTarget, setEditTarget] = useState<Ingredient | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -19,14 +21,10 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
     return [...ingredients]
       .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .sort((a, b) => {
-        // 북마크 여부 우선순위 (Boolean 강제 변환 후 비교)
         const aBooked = !!a.is_bookmarked;
         const bBooked = !!b.is_bookmarked;
-        
         if (aBooked && !bBooked) return -1;
         if (!aBooked && bBooked) return 1;
-        
-        // 북마크 여부가 같으면 이름순 정렬
         return a.name.localeCompare(b.name);
       });
   }, [ingredients, searchTerm]);
@@ -36,7 +34,7 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-black text-gray-800">식재료 관리</h2>
         <button 
-          onClick={() => setIsAdding(true)}
+          onClick={() => isAdmin ? setIsAdding(true) : alert(trialMessage)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 flex items-center space-x-2 active:scale-95 transition-transform"
         >
           <span>+ 등록</span>
@@ -65,7 +63,7 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
           sortedIngredients.map(ing => (
             <button 
               key={ing.uuid} 
-              onClick={() => setEditTarget(ing)}
+              onClick={() => isAdmin ? setEditTarget(ing) : alert(trialMessage)}
               className={`w-full text-left bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center group relative overflow-hidden active:scale-[0.98] transition-all ${ing.is_bookmarked ? 'border-amber-200 ring-1 ring-amber-100' : 'border-gray-50'}`}
             >
               {ing.is_bookmarked && (
@@ -75,7 +73,8 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, onToggleBookmark, 
                 <div 
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleBookmark(ing.uuid);
+                    if (isAdmin) onToggleBookmark(ing.uuid);
+                    else alert(trialMessage);
                   }}
                   className={`p-2 rounded-full transition-all ${ing.is_bookmarked ? 'bg-amber-50 text-amber-500 scale-110 shadow-sm' : 'text-gray-300 hover:text-amber-400'}`}
                 >

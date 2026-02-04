@@ -6,9 +6,11 @@ interface SidebarProps {
   onClose: () => void;
   currentView: 'main' | 'ingredients' | 'stats';
   onNavigate: (view: 'main' | 'ingredients' | 'stats') => void;
+  isAdmin?: boolean;
+  onLogout?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout }) => {
   return (
     <>
       <div 
@@ -35,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           <MenuButton 
             active={currentView === 'main'} 
             onClick={() => { onNavigate('main'); onClose(); }}
-            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />}
             label="메인 식단 기록" 
           />
           <MenuButton 
@@ -57,6 +59,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
                <div className="text-sm text-gray-400 flex items-center space-x-2">
                  <span>⚙️ 설정 (준비중)</span>
                </div>
+               {isAdmin && onLogout && (
+                 <button 
+                  onClick={() => { onLogout(); onClose(); }}
+                  className="w-full text-left text-sm text-red-400 flex items-center space-x-2 font-bold"
+                 >
+                   <span>🔓 관리자 로그아웃</span>
+                 </button>
+               )}
             </div>
           </div>
         </nav>

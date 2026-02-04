@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar';
 import IngredientManagement from './components/IngredientManagement';
 import Statistics from './components/Statistics';
 import ExitModal from './components/ExitModal';
+import AdminLoginModal from './components/AdminLoginModal';
 import { 
   fetchInitialData, 
   saveMealToGAS, 
@@ -19,6 +20,8 @@ import {
   deleteIngredientFromGAS,
   updateIngredientBookmark 
 } from './services/gasService';
+
+const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
 const App: React.FC = () => {
   const getKSTDate = () => {
@@ -32,6 +35,12 @@ const App: React.FC = () => {
     const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     return kst.toISOString().split('T')[1].slice(0, 5);
   };
+
+  // 관리자 상태 관리
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem('isAdmin') === 'true';
+  });
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
 
   const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -63,11 +72,16 @@ const App: React.FC = () => {
         window.history.pushState({ noBackExitsApp: true }, '');
         return;
       }
+      if (isAdminLoginOpen) {
+        setIsAdminLoginOpen(false);
+        window.history.pushState({ noBackExitsApp: true }, '');
+        return;
+      }
       setIsExitModalOpen(true);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSidebarOpen, isInputOpen, adviceModalOpen]);
+  }, [isSidebarOpen, isInputOpen, adviceModalOpen, isAdminLoginOpen]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -115,6 +129,10 @@ const App: React.FC = () => {
   }, [filteredMeals]);
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     const isUpdate = meals.some(m => String(m.uuid) === String(newMeal.uuid));
     if (isUpdate) {
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m));
@@ -133,9 +151,13 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Meal save/update failed", error);
     }
-  }, [meals]);
+  }, [meals, isAdmin]);
 
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target || target.status === status) return;
     const updatedMeal: MealRecord = { 
@@ -153,14 +175,17 @@ const App: React.FC = () => {
     } catch (err) {
       setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...target, pending: false } : m));
     }
-  }, [meals]);
+  }, [meals, isAdmin]);
 
   const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return false;
+    }
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target) return false;
     const previousMeals = [...meals];
     
-    // UI 낙관적 업데이트: 상태를 CANCELED로 변경 (filteredMeals에서 즉시 사라짐)
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
     
     try {
@@ -176,9 +201,13 @@ const App: React.FC = () => {
       setMeals(previousMeals);
       return false;
     }
-  }, [meals]);
+  }, [meals, isAdmin]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
     if (!target) return;
     const nextState = !target.is_bookmarked;
@@ -188,23 +217,35 @@ const App: React.FC = () => {
     } catch (err) {
       setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: !nextState } : i));
     }
-  }, [ingredients]);
+  }, [ingredients, isAdmin]);
 
   const handleAddIngredient = useCallback((ing: Ingredient) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     setIngredients(prev => [...prev, ing]);
     saveIngredientToGAS(ing);
-  }, []);
+  }, [isAdmin]);
 
   const handleUpdateIngredient = useCallback(async (ing: Ingredient) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     setIngredients(prev => prev.map(i => String(i.uuid) === String(ing.uuid) ? ing : i));
     try {
       await updateIngredientInGAS(ing);
     } catch (err) {
       console.error("Update ingredient failed", err);
     }
-  }, []);
+  }, [isAdmin]);
 
   const handleDeleteIngredient = useCallback(async (uuid: string) => {
+    if (!isAdmin) {
+      alert(TRIAL_MESSAGE);
+      return;
+    }
     const previous = [...ingredients];
     setIngredients(prev => prev.filter(i => String(i.uuid) !== String(uuid)));
     try {
@@ -213,20 +254,24 @@ const App: React.FC = () => {
     } catch (err) {
       setIngredients(previous);
     }
-  }, [ingredients]);
+  }, [ingredients, isAdmin]);
 
-  const handleOpenQuickInput = () => {
-    setEditMealTarget(null);
-    setPrefilledType(null);
-    setSelectedDate(getKSTDate());
-    setIsInputOpen(true);
+  const handleLogin = (success: boolean) => {
+    if (success) {
+      setIsAdmin(true);
+      localStorage.setItem('isAdmin', 'true');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('isAdmin');
   };
 
   const handleCopyDiet = useCallback(() => {
     const actualMeals = filteredMeals
       .filter(m => m.status === MealStatus.ACTUAL)
       .sort((a, b) => {
-        // 시간 정렬 시 HH:mm 형식을 보장하기 위해 한 자리 수 시간(예: 8:00) 앞에 '0'을 패딩함
         const padTime = (t: string) => {
           if (!t.includes(':')) return t;
           const [h, m] = t.split(':');
@@ -273,19 +318,32 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl">
-      <header className="bg-indigo-600 text-white p-4 sticky top-0 z-50 shadow-lg flex items-center">
-        <button 
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <h1 className="ml-2 text-xl font-bold">
-          {currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : '나의 통계'}
-        </h1>
+    <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
+      {!isAdmin && (
+        <div className="bg-orange-500 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest sticky top-0 z-[60]">
+          체험 모드로 접속 중입니다
+        </div>
+      )}
+      <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
+        <div className="flex items-center">
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 className="ml-2 text-xl font-bold">
+            {currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : '나의 통계'}
+          </h1>
+        </div>
+        {isAdmin && (
+          <div className="bg-white/20 px-3 py-1 rounded-full flex items-center space-x-1">
+            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-[10px] font-black tracking-widest">ADMIN</span>
+          </div>
+        )}
       </header>
 
       <Sidebar 
@@ -293,6 +351,8 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         currentView={currentView}
         onNavigate={setCurrentView}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
       />
 
       <main className="p-4">
@@ -313,12 +373,21 @@ const App: React.FC = () => {
                   type={type} 
                   meals={filteredMeals.filter(m => m.type === type)} 
                   ingredients={ingredients}
+                  isAdmin={isAdmin}
                   onAdd={() => {
+                    if (!isAdmin) {
+                      alert(TRIAL_MESSAGE);
+                      return;
+                    }
                     setEditMealTarget(null);
                     setPrefilledType(type);
                     setIsInputOpen(true);
                   }}
                   onEdit={(meal) => {
+                    if (!isAdmin) {
+                      alert(TRIAL_MESSAGE);
+                      return;
+                    }
                     setEditMealTarget(meal);
                     setIsInputOpen(true);
                   }}
@@ -349,10 +418,12 @@ const App: React.FC = () => {
         ) : currentView === 'ingredients' ? (
           <IngredientManagement 
             ingredients={ingredients}
+            isAdmin={isAdmin}
             onToggleBookmark={handleToggleBookmark}
             onAddIngredient={handleAddIngredient}
             onUpdateIngredient={handleUpdateIngredient}
             onDeleteIngredient={handleDeleteIngredient}
+            trialMessage={TRIAL_MESSAGE}
           />
         ) : (
           <Statistics 
@@ -365,14 +436,14 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {currentView === 'main' && (
+      {/* 관리자 로그인 버튼 (FAB) */}
+      {!isAdmin && (
         <button 
-          onClick={handleOpenQuickInput}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 hover:scale-105 transition-all animate-in zoom-in slide-in-from-bottom-10 duration-500"
-          aria-label="식단 추가"
+          onClick={() => setIsAdminLoginOpen(true)}
+          className="fixed bottom-6 right-6 w-12 h-12 bg-white text-indigo-600 rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 border-2 border-indigo-50"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </button>
       )}
@@ -389,8 +460,10 @@ const App: React.FC = () => {
           editTarget={editMealTarget}
           ingredients={ingredients}
           meals={meals}
+          isAdmin={isAdmin}
           onSave={onSaveMeal}
           onDelete={onDeleteMeal}
+          trialMessage={TRIAL_MESSAGE}
         />
       )}
 
@@ -400,6 +473,14 @@ const App: React.FC = () => {
           onClose={() => setAdviceModalOpen(false)}
           currentKcal={summary.actual.kcal}
           currentProtein={summary.actual.protein}
+        />
+      )}
+
+      {isAdminLoginOpen && (
+        <AdminLoginModal 
+          isOpen={isAdminLoginOpen}
+          onClose={() => setIsAdminLoginOpen(false)}
+          onLogin={handleLogin}
         />
       )}
 
