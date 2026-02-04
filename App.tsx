@@ -264,8 +264,10 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    setIsAdmin(false);
-    localStorage.removeItem('isAdmin');
+    if (confirm('관리자 모드를 해제하고 로그아웃 하시겠습니까?')) {
+      setIsAdmin(false);
+      localStorage.removeItem('isAdmin');
+    }
   };
 
   const handleCopyDiet = useCallback(() => {
@@ -339,10 +341,14 @@ const App: React.FC = () => {
           </h1>
         </div>
         {isAdmin && (
-          <div className="bg-white/20 px-3 py-1 rounded-full flex items-center space-x-1">
-            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-[10px] font-black tracking-widest">ADMIN</span>
-          </div>
+          <button 
+            onClick={handleLogout}
+            className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"
+            title="관리자 로그아웃"
+          >
+            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div>
+            <span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span>
+          </button>
         )}
       </header>
 
