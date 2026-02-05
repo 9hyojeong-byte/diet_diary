@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -8,9 +8,33 @@ interface SidebarProps {
   onNavigate: (view: 'main' | 'ingredients' | 'stats') => void;
   isAdmin?: boolean;
   onLogout?: () => void;
+  onOpenAdminLogin?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout, onOpenAdminLogin }) => {
+  const [taps, setTaps] = useState(0);
+  // Browser environment might not have NodeJS namespace, using ReturnType of setTimeout instead
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleEasterEgg = () => {
+    if (isAdmin) return;
+    
+    setTaps(prev => {
+      const next = prev + 1;
+      if (next >= 10) {
+        onOpenAdminLogin?.();
+        onClose(); // 드로워 닫기
+        return 0;
+      }
+      return next;
+    });
+
+    if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+    tapTimeoutRef.current = setTimeout(() => {
+      setTaps(0);
+    }, 2000); // 2초 동안 입력이 없으면 카운트 리셋
+  };
+
   return (
     <>
       <div 
@@ -71,9 +95,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           </div>
         </nav>
 
-        <div className="absolute bottom-6 left-6 right-6 p-4 bg-indigo-50 rounded-2xl">
+        <div 
+          onClick={handleEasterEgg}
+          className={`absolute bottom-6 left-6 right-6 p-4 rounded-2xl transition-all active:scale-[0.97] select-none ${taps > 0 ? 'bg-indigo-100' : 'bg-indigo-50'}`}
+        >
           <p className="text-xs font-bold text-indigo-600 mb-1">식단 목표</p>
           <p className="text-[10px] text-gray-500 italic">매일 1500kcal • 단백질 100g</p>
+          {taps > 0 && taps < 10 && (
+            <div className="absolute top-1 right-2 text-[8px] font-black text-indigo-300 opacity-50">
+              {taps}/10
+            </div>
+          )}
         </div>
       </div>
     </>

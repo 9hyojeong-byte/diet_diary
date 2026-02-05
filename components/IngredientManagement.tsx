@@ -91,8 +91,9 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, isAdmin, onToggleB
               </div>
               <div className="text-right flex flex-col items-end">
                 <div className="flex space-x-2 text-[10px] font-bold text-gray-400">
-                  <span className="text-indigo-600">P {ing.protein}g</span>
-                  <span>C {ing.carbs}g</span>
+                  <span className="text-orange-600">C {ing.carbs}g</span>
+                  <span className="text-emerald-600">P {ing.protein}g</span>
+                  <span className="text-blue-600">F {ing.fat}g</span>
                 </div>
               </div>
             </button>
@@ -175,13 +176,19 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">칼로리(kcal)</label>
               <input value={formData.kcal} onChange={e => setFormData({...formData, kcal: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">탄수화물(g)</label>
-              <input placeholder="탄수화물" value={formData.carbs} onChange={e => setFormData({...formData, carbs: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input placeholder="탄" value={formData.carbs} onChange={e => setFormData({...formData, carbs: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">단백질(g)</label>
-              <input placeholder="단백질" value={formData.protein} onChange={e => setFormData({...formData, protein: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input placeholder="단" value={formData.protein} onChange={e => setFormData({...formData, protein: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">지방(g)</label>
+              <input placeholder="지" value={formData.fat} onChange={e => setFormData({...formData, fat: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
           </div>
           <div className="flex space-x-3 pt-4">

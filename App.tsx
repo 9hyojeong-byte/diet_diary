@@ -359,6 +359,7 @@ const App: React.FC = () => {
         onNavigate={setCurrentView}
         isAdmin={isAdmin}
         onLogout={handleLogout}
+        onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
       />
 
       <main className="p-4">

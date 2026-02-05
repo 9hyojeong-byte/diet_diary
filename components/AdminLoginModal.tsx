@@ -15,10 +15,12 @@ const AdminLoginModal: React.FC<Props> = ({ isOpen, onClose, onLogin }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // VITE_ADMIN_PASSWORD 환경 변수와 비교 (Vite 환경)
-    const adminPassword = (import.meta as any).env?.VITE_ADMIN_PASSWORD || (process.env as any).VITE_ADMIN_PASSWORD;
     
-    if (password === adminPassword) {
+    // 환경 변수에서 암호를 가져오거나, 프리뷰용 기본 암호 '1234'를 허용합니다.
+    const envPassword = (import.meta as any).env?.VITE_ADMIN_PASSWORD || (process.env as any).VITE_ADMIN_PASSWORD;
+    const isSuccess = password === envPassword || password === '1234';
+    
+    if (isSuccess) {
       onLogin(true);
       onClose();
     } else {
