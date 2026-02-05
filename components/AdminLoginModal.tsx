@@ -16,9 +16,9 @@ const AdminLoginModal: React.FC<Props> = ({ isOpen, onClose, onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 환경 변수에서 암호를 가져오거나, 프리뷰용 기본 암호 '1234'를 허용합니다.
+    // 환경 변수에서 암호를 가져오거나, 프리뷰용 기본 암호 '9999'를 허용합니다.
     const envPassword = (import.meta as any).env?.VITE_ADMIN_PASSWORD || (process.env as any).VITE_ADMIN_PASSWORD;
-    const isSuccess = password === envPassword || password === '1234';
+    const isSuccess = password === envPassword || password === '9999';
     
     if (isSuccess) {
       onLogin(true);
