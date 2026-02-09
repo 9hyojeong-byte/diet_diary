@@ -124,6 +124,67 @@ const App: React.FC = () => {
     } catch (error) { console.error("Meal save/update failed", error); }
   }, [meals, isAdmin]);
 
+  const handleCopyYesterdayMeals = useCallback(async () => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setDate(dateObj.getDate() - 1);
+    const yesterdayStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    const yesterdayMeals = meals.filter(m => m.date === yesterdayStr && m.status !== MealStatus.CANCELED);
+    if (yesterdayMeals.length === 0) {
+      alert("어제 기록된 식단이 없습니다.");
+      return;
+    }
+    if (filteredMeals.length > 0 && !confirm("이미 오늘 기록된 식단이 있습니다. 어제 식단을 추가로 복사할까요?")) {
+      return;
+    }
+    const newMeals: MealRecord[] = yesterdayMeals.map(m => ({
+      ...m,
+      uuid: crypto.randomUUID(),
+      date: selectedDate,
+      status: MealStatus.PLANNED,
+      pending: true
+    }));
+    setMeals(prev => [...prev, ...newMeals]);
+    try {
+      for (const m of newMeals) { await saveMealToGAS(m); }
+      setMeals(prev => prev.map(m => {
+        const found = newMeals.find(nm => nm.uuid === m.uuid);
+        return found ? { ...m, pending: false } : m;
+      }));
+    } catch (error) {
+      console.error("Failed to copy meals", error);
+      alert("식단 복사 중 오류가 발생했습니다.");
+    }
+  }, [selectedDate, meals, filteredMeals, isAdmin]);
+
+  const handleCopyTextToClipboard = useCallback(() => {
+    const actualMealsToCopy = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
+    if (actualMealsToCopy.length === 0) {
+      alert("섭취 완료된(ACTUAL) 식단이 없습니다.");
+      return;
+    }
+    const typeOrder = { [MealType.BREAKFAST]: 1, [MealType.LUNCH]: 2, [MealType.SNACK]: 3, [MealType.DINNER]: 4 };
+    const sorted = [...actualMealsToCopy].sort((a, b) => {
+      const orderA = typeOrder[a.type] || 99;
+      const orderB = typeOrder[b.type] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.time.localeCompare(b.time);
+    });
+    let text = `[${selectedDate} 식단 기록]\n\n`;
+    sorted.forEach(m => {
+      text += `✅ [${m.type}] ${m.time} | ${m.ingredient_name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+    });
+    text += `\n총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
+    text += `영양합계(실제): 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("섭취 완료된 식단 리스트가 클립보드에 복사되었습니다! 📋");
+    }).catch(err => {
+      console.error("Clipboard copy failed", err);
+      alert("복사에 실패했습니다.");
+    });
+  }, [filteredMeals, selectedDate, summary]);
+
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const now = getKSTFullTime();
@@ -134,13 +195,10 @@ const App: React.FC = () => {
       updated_at: now,
       pending: true
     };
-    
-    // Optimistic Update
     setDiaries(prev => {
       const exists = prev.some(d => d.date === selectedDate);
       return exists ? prev.map(d => d.date === selectedDate ? newDiary : d) : [...prev, newDiary];
     });
-
     try {
       const success = await saveDiaryToGAS(newDiary);
       if (success) setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
@@ -203,18 +261,6 @@ const App: React.FC = () => {
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} />
             <DailySummaryView summary={summary} selectedDate={selectedDate} />
 
-            <button 
-              onClick={() => setIsDiaryOpen(true)}
-              className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${
-                currentDiary 
-                  ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
-                  : 'bg-white border-dashed border-gray-200 text-gray-400'
-              }`}
-            >
-              <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
-              <span>{currentDiary ? '건강 일기 보기' : '건강 일기 작성하기'}</span>
-            </button>
-
             <div className="space-y-4">
               {[MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER].map(type => (
                 <MealSection key={type} type={type} meals={filteredMeals.filter(m => m.type === type)} ingredients={ingredients} isAdmin={isAdmin} onAdd={() => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setEditMealTarget(null); setPrefilledType(type); setIsInputOpen(true); }} onEdit={(m) => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setEditMealTarget(m); setIsInputOpen(true); }} onDelete={onDeleteMeal} onSetStatus={handleSetMealStatus} />
@@ -222,6 +268,24 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-2 space-y-3">
+              <button 
+                onClick={() => setIsDiaryOpen(true)}
+                className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${
+                  currentDiary 
+                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
+                    : 'bg-white border-dashed border-gray-200 text-gray-400'
+                }`}
+              >
+                <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
+                <span>{currentDiary ? '건강 일기 보기' : '오늘의 건강 일기 작성'}</span>
+              </button>
+              <button 
+                onClick={handleCopyTextToClipboard}
+                className="w-full py-4 bg-white border-2 border-indigo-500 text-indigo-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <span className="text-xl">📋</span>
+                <span>식단 리스트 복사하기</span>
+              </button>
               <button onClick={() => setAdviceModalOpen(true)} className="w-full py-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center space-x-2"><span className="text-xl">✨</span><span>AI 영양 추천 받기</span></button>
             </div>
           </div>
