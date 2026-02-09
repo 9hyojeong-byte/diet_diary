@@ -1,9 +1,9 @@
 
-import { MealRecord, Ingredient, MealStatus } from '../types';
+import { MealRecord, Ingredient, MealStatus, HealthDiary } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwTWuRqdWN-ioZf9q2D7XDm_SWGgtozpkzFNfbBaErwH6MO072K_SakXGLfJB0vKDZe/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxWHQBJymgrLZ6FKT8JVbaO2sKO_HlxmwQfuOiblpaNuHg8X9QM8dZbZdiP1V7bL_Xq/exec';
 
-export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[] }> {
+export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[] }> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
       method: 'GET',
@@ -40,10 +40,15 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
       fiber: Number(meal.fiber) || 0
     }));
 
-    return { meals: sanitizedMeals, ingredients: sanitizedIngredients };
+    const sanitizedDiaries = (data.diaries || []).map((d: any) => ({
+      ...d,
+      date: String(d.date).split('T')[0]
+    }));
+
+    return { meals: sanitizedMeals, ingredients: sanitizedIngredients, diaries: sanitizedDiaries };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [] };
+    return { meals: [], ingredients: [], diaries: [] };
   }
 }
 
@@ -73,6 +78,10 @@ export async function deleteIngredientFromGAS(uuid: string): Promise<boolean> {
 
 export async function updateIngredientBookmark(uuid: string, isBookmarked: boolean): Promise<boolean> {
   return callGAS('updateBookmark', { uuid, is_bookmarked: isBookmarked });
+}
+
+export async function saveDiaryToGAS(diary: HealthDiary): Promise<boolean> {
+  return callGAS('saveDiary', diary);
 }
 
 async function callGAS(action: string, data: any): Promise<boolean> {

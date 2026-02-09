@@ -27,6 +27,8 @@ function doPost(e) {
     deleteRowByUuid('Ingredients', data.uuid);
   } else if (action === 'updateBookmark') {
     updateBookmark(data.uuid, data.is_bookmarked);
+  } else if (action === 'saveDiary') {
+    saveDiary(data);
   }
   
   return ContentService.createTextOutput(JSON.stringify({success: true}))
@@ -37,6 +39,7 @@ function getSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let ingredientsSheet = ss.getSheetByName('Ingredients');
   let mealsSheet = ss.getSheetByName('Meals');
+  let diariesSheet = ss.getSheetByName('HealthDiaries');
   
   if (!ingredientsSheet) {
     ingredientsSheet = ss.insertSheet('Ingredients');
@@ -45,27 +48,23 @@ function getSheets() {
   
   if (!mealsSheet) {
     mealsSheet = ss.insertSheet('Meals');
-    // status 컬럼 포함 헤더 정의
     mealsSheet.appendRow(['uuid', 'type', 'status', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
-  } else {
-    // 기존 시트에 status 컬럼이 없는 경우 대응 (두 번째 열에 추가)
-    const headers = mealsSheet.getRange(1, 1, 1, mealsSheet.getLastColumn()).getValues()[0];
-    if (headers.indexOf('status') === -1) {
-      mealsSheet.insertColumnAfter(2);
-      mealsSheet.getRange(1, 3).setValue('status');
-    }
   }
   
-  return { ingredientsSheet, mealsSheet };
+  if (!diariesSheet) {
+    diariesSheet = ss.insertSheet('HealthDiaries');
+    diariesSheet.appendRow(['uuid', 'date', 'content', 'updated_at']);
+  }
+  
+  return { ingredientsSheet, mealsSheet, diariesSheet };
 }
 
 function getAllData() {
-  const { ingredientsSheet, mealsSheet } = getSheets();
-  const ingData = ingredientsSheet.getDataRange().getDisplayValues();
-  const mealData = mealsSheet.getDataRange().getDisplayValues();
+  const { ingredientsSheet, mealsSheet, diariesSheet } = getSheets();
   return { 
-    ingredients: dataToJson(ingData), 
-    meals: dataToJson(mealData) 
+    ingredients: dataToJson(ingredientsSheet.getDataRange().getDisplayValues()), 
+    meals: dataToJson(mealsSheet.getDataRange().getDisplayValues()),
+    diaries: dataToJson(diariesSheet.getDataRange().getDisplayValues())
   };
 }
 
@@ -86,31 +85,35 @@ function dataToJson(data) {
 function saveMeal(meal) {
   const { mealsSheet } = getSheets();
   const headers = mealsSheet.getRange(1, 1, 1, mealsSheet.getLastColumn()).getValues()[0].map(h => h.trim().toLowerCase());
-  
-  const rowData = headers.map(header => {
-    if (header === 'uuid') return meal.uuid;
-    if (header === 'type') return meal.type;
-    if (header === 'status') return meal.status || 'ACTUAL';
-    if (header === 'date') return meal.date;
-    if (header === 'time') return meal.time;
-    if (header === 'ingredient_name') return meal.ingredient_name || '';
-    if (header === 'ingredient_uuid') return meal.ingredient_uuid;
-    if (header === 'amount') return meal.amount;
-    if (header === 'kcal') return meal.kcal;
-    if (header === 'carbs') return meal.carbs;
-    if (header === 'protein') return meal.protein;
-    if (header === 'fat') return meal.fat;
-    if (header === 'sugar') return meal.sugar;
-    if (header === 'fiber') return meal.fiber;
-    return '';
-  });
-  
+  const rowData = headers.map(header => meal[header] || '');
   mealsSheet.appendRow(rowData);
 }
 
 function saveIngredient(ing) {
   const { ingredientsSheet } = getSheets();
   ingredientsSheet.appendRow([ing.uuid, ing.name, ing.base_amount, ing.kcal, ing.carbs, ing.protein, ing.fat, ing.sugar, ing.fiber, ing.is_bookmarked || false]);
+}
+
+function saveDiary(diary) {
+  const { diariesSheet } = getSheets();
+  const data = diariesSheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const dateIndex = headers.indexOf('date');
+  
+  let foundRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][dateIndex]) === String(diary.date)) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  const rowData = headers.map(h => diary[h] || '');
+  if (foundRow !== -1) {
+    diariesSheet.getRange(foundRow, 1, 1, headers.length).setValues([rowData]);
+  } else {
+    diariesSheet.appendRow(rowData);
+  }
 }
 
 function updateRowByUuid(sheetName, uuid, newData) {

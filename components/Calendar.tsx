@@ -1,23 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
-import { MealRecord } from '../types';
+import { MealRecord, HealthDiary } from '../types';
 
 interface CalendarProps {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   meals: MealRecord[];
+  diaries: HealthDiary[];
 }
 
-const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }) => {
+const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, diaries }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // 로컬 날짜 객체 생성을 위한 헬퍼 (타임존 오류 방지)
   const parseLocalDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
   };
 
-  // 로컬 YYYY-MM-DD 문자열 반환 (toISOString 대용)
   const toLocalDateString = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -34,24 +33,27 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
   };
 
   const todayStr = getKSTToday();
-
-  // 요일 헤더 (월~일)
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
-  // 식단 데이터가 있는 날짜들을 Set으로 관리
   const mealDates = useMemo(() => {
     const dates = new Set<string>();
     meals.forEach(m => {
-      if (m.date) dates.add(m.date.split('T')[0]);
+      if (m.date) dates.add(String(m.date).split('T')[0]);
     });
     return dates;
   }, [meals]);
 
-  // 선택된 날짜가 포함된 주의 월요일~일요일 구하기
+  const diaryDates = useMemo(() => {
+    const dates = new Set<string>();
+    diaries.forEach(d => {
+      if (d.date) dates.add(String(d.date).split('T')[0]);
+    });
+    return dates;
+  }, [diaries]);
+
   const currentWeek = useMemo(() => {
     const curr = parseLocalDate(selectedDate);
-    const day = curr.getDay(); // 0(일) ~ 6(토)
-    // 월요일 시작으로 변환 (월:0, ..., 일:6)
+    const day = curr.getDay();
     const diffToMonday = day === 0 ? 6 : day - 1;
     
     return Array.from({ length: 7 }, (_, i) => {
@@ -61,14 +63,11 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
     });
   }, [selectedDate]);
 
-  // 전체 달력용 날짜 계산 (월요일 시작 기준)
   const monthDays = useMemo(() => {
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth();
-    
     const firstDay = new Date(year, month, 1);
     const firstDayIdx = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1);
-    
     const startDate = new Date(firstDay);
     startDate.setDate(firstDay.getDate() - firstDayIdx);
 
@@ -92,7 +91,6 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
-      {/* Header */}
       <div className="flex justify-between items-center p-4 pb-2">
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
@@ -135,14 +133,12 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
         </div>
       </div>
 
-      {/* 요일 라벨 */}
       <div className="grid grid-cols-7 gap-1 px-4 text-center">
         {weekDays.map(d => (
           <span key={d} className="text-[10px] font-bold text-gray-300 py-1 uppercase">{d}</span>
         ))}
       </div>
 
-      {/* 날짜 그리드 */}
       <div className={`px-4 pb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-20 opacity-100'}`}>
         <div className="grid grid-cols-7 gap-1 mt-1">
           {(isExpanded ? monthDays : currentWeek).map((date) => {
@@ -150,6 +146,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
             const isSelected = date === selectedDate;
             const isToday = date === todayStr;
             const hasMeal = mealDates.has(date);
+            const hasDiary = diaryDates.has(date);
             const isCurrentMonth = d.getMonth() === viewMonth.getMonth();
             const dayNum = d.getDate();
 
@@ -158,7 +155,6 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
                 key={date}
                 onClick={() => {
                   onSelectDate(date);
-                  // 월 달력 뷰에서는 선택한 날짜의 달로 뷰포커스 이동하지 않고 날짜만 선택
                   if (!isExpanded) {
                     setViewMonth(parseLocalDate(date));
                   }
@@ -173,9 +169,14 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals }
                 <span className={`text-sm font-bold ${isSelected ? 'text-white' : isToday ? 'text-indigo-600' : 'text-gray-700'}`}>
                   {dayNum}
                 </span>
-                {hasMeal && (
-                  <span className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`}></span>
-                )}
+                <div className="absolute bottom-1.5 flex space-x-0.5">
+                  {hasMeal && (
+                    <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`}></span>
+                  )}
+                  {hasDiary && (
+                    <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-emerald-200' : 'bg-emerald-500'}`}></span>
+                  )}
+                </div>
               </button>
             );
           })}

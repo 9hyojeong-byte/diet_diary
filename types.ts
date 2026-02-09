@@ -22,17 +22,17 @@ export interface Ingredient {
   fat: number;
   sugar: number;
   fiber: number;
-  is_bookmarked?: boolean; // 즐겨찾기 여부
+  is_bookmarked?: boolean;
 }
 
 export interface MealRecord {
   uuid: string;
   type: MealType;
-  status: MealStatus; // 예정(PLANNED), 실제(ACTUAL), 취소(CANCELED)
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
+  status: MealStatus;
+  date: string;
+  time: string;
   ingredient_uuid: string;
-  ingredient_name?: string; // 저장된 이름 (일회성 식단 대응)
+  ingredient_name?: string;
   amount: number;
   kcal: number;
   carbs: number;
@@ -40,7 +40,7 @@ export interface MealRecord {
   fat: number;
   sugar: number;
   fiber: number;
-  pending?: boolean; // For optimistic UI
+  pending?: boolean;
 }
 
 export interface DailySummary {
@@ -56,4 +56,12 @@ export interface DailySummary {
     protein: number;
     fat: number;
   };
+}
+
+export interface HealthDiary {
+  uuid: string;
+  date: string; // YYYY-MM-DD
+  content: string;
+  updated_at: string;
+  pending?: boolean;
 }
