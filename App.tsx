@@ -25,6 +25,8 @@ import {
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
+const FOOD_EMOJIS = ['🥗', '🍎', '🥑', '🍗', '🍳', '🥛', '🍣', '🍱', '🥣', '🥦', '🍌', '🥪', '🥙', '🥗'];
+
 const App: React.FC = () => {
   const getKSTDate = () => {
     const now = new Date();
@@ -55,12 +57,21 @@ const App: React.FC = () => {
   const [diaries, setDiaries] = useState<HealthDiary[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingEmoji, setLoadingEmoji] = useState('🥗');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [editMealTarget, setEditMealTarget] = useState<MealRecord | null>(null);
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+
+  // Toast handler
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   useEffect(() => {
     window.history.pushState({ noBackExitsApp: true }, '');
@@ -79,6 +90,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
+      setLoadingEmoji(FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)]);
       try {
         const data = await fetchInitialData();
         setMeals(data.meals || []);
@@ -86,8 +98,10 @@ const App: React.FC = () => {
         setDiaries(data.diaries || []);
       } catch (error) {
         console.error("Failed to load data", error);
+        showToast("데이터를 불러오는 중 오류가 발생했습니다.");
       } finally {
-        setIsLoading(false);
+        // 부드러운 전환을 위해 약간의 지연 추가
+        setTimeout(() => setIsLoading(false), 1200);
       }
     };
     loadData();
@@ -115,48 +129,82 @@ const App: React.FC = () => {
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    
+    // 롤백을 위한 이전 상태 저장
+    const prevMeals = [...meals];
+    const prevIngredients = [...ingredients];
+    
     const isUpdate = meals.some(m => String(m.uuid) === String(newMeal.uuid));
-    setMeals(prev => isUpdate ? prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m) : [...prev, { ...newMeal, pending: true }]);
-    if (newIngredient) { setIngredients(prev => [...prev, newIngredient]); saveIngredientToGAS(newIngredient); }
+    
+    // 낙관적 업데이트
+    setMeals(prev => isUpdate 
+      ? prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m) 
+      : [...prev, { ...newMeal, pending: true }]
+    );
+    if (newIngredient) {
+      setIngredients(prev => [...prev, newIngredient]);
+    }
+
     try {
-      isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
+      if (newIngredient) await saveIngredientToGAS(newIngredient);
+      const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
+      
+      if (!success) throw new Error("Server storage failed");
+      
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
-    } catch (error) { console.error("Meal save/update failed", error); }
+    } catch (error) {
+      console.error("Meal save/update failed", error);
+      // 롤백
+      setMeals(prevMeals);
+      setIngredients(prevIngredients);
+      showToast("저장에 실패했습니다. 다시 시도해 주세요.");
+    }
+  }, [meals, ingredients, isAdmin]);
+
+  const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    const target = meals.find(m => String(m.uuid) === String(uuid));
+    if (!target || target.status === status) return;
+
+    const prevMeals = [...meals];
+    const updatedMeal: MealRecord = { ...target, status, time: status === MealStatus.ACTUAL ? getKSTTime() : target.time, pending: true };
+    
+    // 낙관적 업데이트
+    setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
+    
+    try {
+      const success = await updateMealInGAS(updatedMeal);
+      if (!success) throw new Error("Update failed");
+      setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
+    } catch (err) {
+      setMeals(prevMeals);
+      showToast("상태 변경에 실패했습니다. 다시 시도해 주세요.");
+    }
   }, [meals, isAdmin]);
 
-  const handleCopyYesterdayMeals = useCallback(async () => {
-    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
-    const [y, m, d] = selectedDate.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    dateObj.setDate(dateObj.getDate() - 1);
-    const yesterdayStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-    const yesterdayMeals = meals.filter(m => m.date === yesterdayStr && m.status !== MealStatus.CANCELED);
-    if (yesterdayMeals.length === 0) {
-      alert("어제 기록된 식단이 없습니다.");
-      return;
-    }
-    if (filteredMeals.length > 0 && !confirm("이미 오늘 기록된 식단이 있습니다. 어제 식단을 추가로 복사할까요?")) {
-      return;
-    }
-    const newMeals: MealRecord[] = yesterdayMeals.map(m => ({
-      ...m,
-      uuid: crypto.randomUUID(),
-      date: selectedDate,
-      status: MealStatus.PLANNED,
-      pending: true
-    }));
-    setMeals(prev => [...prev, ...newMeals]);
+  const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
+    const target = meals.find(m => String(m.uuid) === String(uuid));
+    if (!target) return false;
+    
+    const prevMeals = [...meals];
+    // 낙관적 업데이트: UI에서 즉시 제거(또는 취소 상태로)
+    setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
+    
     try {
-      for (const m of newMeals) { await saveMealToGAS(m); }
-      setMeals(prev => prev.map(m => {
-        const found = newMeals.find(nm => nm.uuid === m.uuid);
-        return found ? { ...m, pending: false } : m;
-      }));
-    } catch (error) {
-      console.error("Failed to copy meals", error);
-      alert("식단 복사 중 오류가 발생했습니다.");
+      const success = await updateMealInGAS({ ...target, status: MealStatus.CANCELED });
+      if (success) {
+        setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, pending: false } : m));
+        return true;
+      } else {
+        throw new Error("Delete failed");
+      }
+    } catch (err) {
+      setMeals(prevMeals);
+      showToast("삭제에 실패했습니다. 다시 시도해 주세요.");
+      return false;
     }
-  }, [selectedDate, meals, filteredMeals, isAdmin]);
+  }, [meals, isAdmin]);
 
   const handleCopyTextToClipboard = useCallback(() => {
     const actualMealsToCopy = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
@@ -177,16 +225,19 @@ const App: React.FC = () => {
     });
     text += `\n총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
     text += `영양합계(실제): 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
+    
     navigator.clipboard.writeText(text).then(() => {
-      alert("섭취 완료된 식단 리스트가 클립보드에 복사되었습니다! 📋");
+      showToast("식단이 클립보드에 복사되었습니다! 📋");
     }).catch(err => {
       console.error("Clipboard copy failed", err);
-      alert("복사에 실패했습니다.");
+      showToast("복사에 실패했습니다.");
     });
   }, [filteredMeals, selectedDate, summary]);
 
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    
+    const prevDiaries = [...diaries];
     const now = getKSTFullTime();
     const newDiary: HealthDiary = {
       uuid: currentDiary?.uuid || crypto.randomUUID(),
@@ -195,48 +246,45 @@ const App: React.FC = () => {
       updated_at: now,
       pending: true
     };
+    
+    // 낙관적 업데이트
     setDiaries(prev => {
       const exists = prev.some(d => d.date === selectedDate);
       return exists ? prev.map(d => d.date === selectedDate ? newDiary : d) : [...prev, newDiary];
     });
+
     try {
       const success = await saveDiaryToGAS(newDiary);
-      if (success) setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
-    } catch (error) { console.error("Diary save failed", error); }
-  }, [selectedDate, currentDiary, isAdmin]);
-
-  const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
-    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
-    const target = meals.find(m => String(m.uuid) === String(uuid));
-    if (!target || target.status === status) return;
-    const updatedMeal: MealRecord = { ...target, status, time: status === MealStatus.ACTUAL ? getKSTTime() : target.time, pending: true };
-    setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
-    try {
-      const success = await updateMealInGAS(updatedMeal);
-      if (success) setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
-    } catch (err) { setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...target, pending: false } : m)); }
-  }, [meals, isAdmin]);
-
-  const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
-    if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
-    const target = meals.find(m => String(m.uuid) === String(uuid));
-    if (!target) return false;
-    const prev = [...meals];
-    setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
-    try {
-      const success = await updateMealInGAS({ ...target, status: MealStatus.CANCELED });
-      if (success) { setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, pending: false } : m)); return true; }
-      else { setMeals(prev); return false; }
-    } catch (err) { setMeals(prev); return false; }
-  }, [meals, isAdmin]);
+      if (success) {
+        setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
+      } else {
+        throw new Error("Diary storage failed");
+      }
+    } catch (error) { 
+      console.error("Diary save failed", error);
+      setDiaries(prevDiaries);
+      showToast("일기 저장에 실패했습니다.");
+    }
+  }, [selectedDate, currentDiary, diaries, isAdmin]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
     if (!target) return;
+    
+    const prevIngredients = [...ingredients];
     const next = !target.is_bookmarked;
+    
+    // 낙관적 업데이트
     setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: next } : i));
-    try { await updateIngredientBookmark(uuid, next); } catch (err) { setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: !next } : i)); }
+    
+    try { 
+      const success = await updateIngredientBookmark(uuid, next); 
+      if (!success) throw new Error("Bookmark failed");
+    } catch (err) { 
+      setIngredients(prevIngredients); 
+      showToast("즐겨찾기 상태 변경에 실패했습니다.");
+    }
   }, [ingredients, isAdmin]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); localStorage.setItem('isAdmin', 'true'); } };
@@ -244,7 +292,29 @@ const App: React.FC = () => {
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
+      {/* 전역 로딩 화면 */}
+      {isLoading && (
+        <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
+          <div className="relative mb-8">
+            <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center animate-pulse">
+              <span className="text-6xl animate-bounce" style={{ display: 'inline-block' }}>{loadingEmoji}</span>
+            </div>
+            <div className="absolute -inset-2 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+          </div>
+          <h2 className="text-xl font-black text-gray-800 mb-2">데이터를 불러오는 중입니다...</h2>
+          <p className="text-sm text-gray-400 font-medium">잠시만 기다려 주세요 ✨</p>
+        </div>
+      )}
+
+      {/* 알림 토스트 */}
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+          {toastMessage}
+        </div>
+      )}
+
       {!isAdmin && <div className="bg-orange-500 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest sticky top-0 z-[60]">체험 모드로 접속 중입니다</div>}
+      
       <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
         <div className="flex items-center">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
