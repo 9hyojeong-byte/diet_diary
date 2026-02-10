@@ -206,9 +206,8 @@ const App: React.FC = () => {
     let text = `[${selectedDate} 식단 기록]\n\n`;
 
     typeOrder.forEach(type => {
-      const typeMeals = actualMealsToCopy
-        .filter(m => m.type === type)
-        .sort((a, b) => a.time.localeCompare(b.time));
+      // 시간순 정렬 제거: 입력된 순서(배열 인덱스 순서) 유지
+      const typeMeals = actualMealsToCopy.filter(m => m.type === type);
 
       if (typeMeals.length > 0) {
         text += `[${type}]\n`;

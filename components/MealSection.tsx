@@ -32,9 +32,9 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
     return meals.reduce((sum, meal) => sum + (Number(meal.protein) || 0), 0);
   }, [meals]);
 
-  // 시간을 기준으로 정렬된 식단 목록
-  const sortedMeals = useMemo(() => {
-    return [...meals].sort((a, b) => a.time.localeCompare(b.time));
+  // 입력 순서(배열 인덱스 순서)를 그대로 유지하기 위해 정렬 로직 제거
+  const displayMeals = useMemo(() => {
+    return [...meals];
   }, [meals]);
 
   return (
@@ -66,12 +66,12 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
       </div>
 
       <div className="space-y-2">
-        {sortedMeals.length === 0 ? (
+        {displayMeals.length === 0 ? (
           <div className="bg-white/50 border border-dashed border-gray-200 p-4 rounded-xl text-center text-xs text-gray-400 italic">
             기록된 {type}이 없습니다.
           </div>
         ) : (
-          sortedMeals.map(meal => (
+          displayMeals.map(meal => (
             <SwipeableMealCard 
               key={meal.uuid} 
               meal={meal} 
