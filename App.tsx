@@ -150,7 +150,13 @@ const App: React.FC = () => {
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target || target.status === status) return;
     const prevMeals = [...meals];
-    const updatedMeal: MealRecord = { ...target, status, time: status === MealStatus.ACTUAL ? getKSTTime() : target.time, pending: true };
+    
+    // ACTUAL이면 현재 시각, PLANNED이면 23:59로 자동 설정
+    const newTime = status === MealStatus.ACTUAL 
+      ? getKSTTime() 
+      : (status === MealStatus.PLANNED ? '23:59' : target.time);
+
+    const updatedMeal: MealRecord = { ...target, status, time: newTime, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
       const success = await updateMealInGAS(updatedMeal);

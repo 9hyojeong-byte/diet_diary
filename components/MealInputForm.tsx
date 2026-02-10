@@ -155,12 +155,22 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     
     if (!preview) return;
     
+    // 시간 로직 수정
+    let finalTime = time;
+    if (finalStatus === MealStatus.PLANNED) {
+      // 예정(PLANNED)으로 저장 시 항상 23:59
+      finalTime = '23:59';
+    } else if (finalStatus === MealStatus.ACTUAL && editTarget?.status === MealStatus.PLANNED) {
+      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 적용
+      finalTime = getKSTTime();
+    }
+    
     onSave({
       uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
       status: finalStatus,
       date,
-      time,
+      time: finalTime,
       ingredient_name: finalIngredientName,
       ingredient_uuid: finalIngredientUuid,
       amount: parseFloat(amount),
