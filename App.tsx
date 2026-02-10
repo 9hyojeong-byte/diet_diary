@@ -221,7 +221,7 @@ const App: React.FC = () => {
     });
     let text = `[${selectedDate} 식단 기록]\n\n`;
     sorted.forEach(m => {
-      text += `✅ [${m.type}] ${m.time} | ${m.ingredient_name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+      text += `✅ [${m.type}] ${m.time} | ${m.ingredient_name} - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
     });
     text += `\n총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
     text += `영양합계(실제): 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
