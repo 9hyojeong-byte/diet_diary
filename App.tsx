@@ -100,7 +100,6 @@ const App: React.FC = () => {
         console.error("Failed to load data", error);
         showToast("데이터를 불러오는 중 오류가 발생했습니다.");
       } finally {
-        // 부드러운 전환을 위해 약간의 지연 추가
         setTimeout(() => setIsLoading(false), 1200);
       }
     };
@@ -129,32 +128,17 @@ const App: React.FC = () => {
 
   const onSaveMeal = useCallback(async (newMeal: MealRecord, newIngredient?: Ingredient) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
-    
-    // 롤백을 위한 이전 상태 저장
     const prevMeals = [...meals];
     const prevIngredients = [...ingredients];
-    
     const isUpdate = meals.some(m => String(m.uuid) === String(newMeal.uuid));
-    
-    // 낙관적 업데이트
-    setMeals(prev => isUpdate 
-      ? prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m) 
-      : [...prev, { ...newMeal, pending: true }]
-    );
-    if (newIngredient) {
-      setIngredients(prev => [...prev, newIngredient]);
-    }
-
+    setMeals(prev => isUpdate ? prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m) : [...prev, { ...newMeal, pending: true }]);
+    if (newIngredient) setIngredients(prev => [...prev, newIngredient]);
     try {
       if (newIngredient) await saveIngredientToGAS(newIngredient);
       const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
-      
       if (!success) throw new Error("Server storage failed");
-      
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
     } catch (error) {
-      console.error("Meal save/update failed", error);
-      // 롤백
       setMeals(prevMeals);
       setIngredients(prevIngredients);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
@@ -165,13 +149,9 @@ const App: React.FC = () => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target || target.status === status) return;
-
     const prevMeals = [...meals];
     const updatedMeal: MealRecord = { ...target, status, time: status === MealStatus.ACTUAL ? getKSTTime() : target.time, pending: true };
-    
-    // 낙관적 업데이트
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
-    
     try {
       const success = await updateMealInGAS(updatedMeal);
       if (!success) throw new Error("Update failed");
@@ -186,19 +166,14 @@ const App: React.FC = () => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target) return false;
-    
     const prevMeals = [...meals];
-    // 낙관적 업데이트: UI에서 즉시 제거(또는 취소 상태로)
     setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
-    
     try {
       const success = await updateMealInGAS({ ...target, status: MealStatus.CANCELED });
       if (success) {
         setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, pending: false } : m));
         return true;
-      } else {
-        throw new Error("Delete failed");
-      }
+      } else throw new Error("Delete failed");
     } catch (err) {
       setMeals(prevMeals);
       showToast("삭제에 실패했습니다. 다시 시도해 주세요.");
@@ -206,24 +181,40 @@ const App: React.FC = () => {
     }
   }, [meals, isAdmin]);
 
+  const getIngredientDisplayName = useCallback((meal: MealRecord) => {
+    if (meal.ingredient_name) return meal.ingredient_name;
+    if (!meal.ingredient_uuid) return '식재료 정보 없음';
+    const targetUuid = String(meal.ingredient_uuid).trim();
+    const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
+    return found ? found.name : '알 수 없는 식재료';
+  }, [ingredients]);
+
   const handleCopyTextToClipboard = useCallback(() => {
     const actualMealsToCopy = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
     if (actualMealsToCopy.length === 0) {
       alert("섭취 완료된(ACTUAL) 식단이 없습니다.");
       return;
     }
-    const typeOrder = { [MealType.BREAKFAST]: 1, [MealType.LUNCH]: 2, [MealType.SNACK]: 3, [MealType.DINNER]: 4 };
-    const sorted = [...actualMealsToCopy].sort((a, b) => {
-      const orderA = typeOrder[a.type] || 99;
-      const orderB = typeOrder[b.type] || 99;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.time.localeCompare(b.time);
-    });
+
+    const typeOrder = [MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER];
     let text = `[${selectedDate} 식단 기록]\n\n`;
-    sorted.forEach(m => {
-      text += `✅ [${m.type}] ${m.time} | ${m.ingredient_name} - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+
+    typeOrder.forEach(type => {
+      const typeMeals = actualMealsToCopy
+        .filter(m => m.type === type)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      if (typeMeals.length > 0) {
+        text += `[${type}]\n`;
+        typeMeals.forEach(m => {
+          const name = getIngredientDisplayName(m);
+          text += `${m.time} | ${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+        });
+        text += `\n`;
+      }
     });
-    text += `\n총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
+
+    text += `총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
     text += `영양합계(실제): 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
     
     navigator.clipboard.writeText(text).then(() => {
@@ -232,11 +223,10 @@ const App: React.FC = () => {
       console.error("Clipboard copy failed", err);
       showToast("복사에 실패했습니다.");
     });
-  }, [filteredMeals, selectedDate, summary]);
+  }, [filteredMeals, selectedDate, summary, getIngredientDisplayName]);
 
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
-    
     const prevDiaries = [...diaries];
     const now = getKSTFullTime();
     const newDiary: HealthDiary = {
@@ -246,22 +236,15 @@ const App: React.FC = () => {
       updated_at: now,
       pending: true
     };
-    
-    // 낙관적 업데이트
     setDiaries(prev => {
       const exists = prev.some(d => d.date === selectedDate);
       return exists ? prev.map(d => d.date === selectedDate ? newDiary : d) : [...prev, newDiary];
     });
-
     try {
       const success = await saveDiaryToGAS(newDiary);
-      if (success) {
-        setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
-      } else {
-        throw new Error("Diary storage failed");
-      }
+      if (success) setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
+      else throw new Error("Diary storage failed");
     } catch (error) { 
-      console.error("Diary save failed", error);
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");
     }
@@ -271,13 +254,9 @@ const App: React.FC = () => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
     if (!target) return;
-    
     const prevIngredients = [...ingredients];
     const next = !target.is_bookmarked;
-    
-    // 낙관적 업데이트
     setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: next } : i));
-    
     try { 
       const success = await updateIngredientBookmark(uuid, next); 
       if (!success) throw new Error("Bookmark failed");
@@ -292,7 +271,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
-      {/* 전역 로딩 화면 */}
       {isLoading && (
         <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
           <div className="relative mb-8">
@@ -306,7 +284,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 알림 토스트 */}
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           {toastMessage}
@@ -338,21 +315,11 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-2 space-y-3">
-              <button 
-                onClick={() => setIsDiaryOpen(true)}
-                className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${
-                  currentDiary 
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
-                    : 'bg-white border-dashed border-gray-200 text-gray-400'
-                }`}
-              >
+              <button onClick={() => setIsDiaryOpen(true)} className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${currentDiary ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-dashed border-gray-200 text-gray-400'}`}>
                 <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
                 <span>{currentDiary ? '건강 일기 보기' : '오늘의 건강 일기 작성'}</span>
               </button>
-              <button 
-                onClick={handleCopyTextToClipboard}
-                className="w-full py-4 bg-white border-2 border-indigo-500 text-indigo-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2"
-              >
+              <button onClick={handleCopyTextToClipboard} className="w-full py-4 bg-white border-2 border-indigo-500 text-indigo-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2">
                 <span className="text-xl">📋</span>
                 <span>식단 리스트 복사하기</span>
               </button>

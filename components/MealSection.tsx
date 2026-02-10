@@ -32,6 +32,11 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
     return meals.reduce((sum, meal) => sum + (Number(meal.protein) || 0), 0);
   }, [meals]);
 
+  // 시간을 기준으로 정렬된 식단 목록
+  const sortedMeals = useMemo(() => {
+    return [...meals].sort((a, b) => a.time.localeCompare(b.time));
+  }, [meals]);
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center px-1">
@@ -61,12 +66,12 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
       </div>
 
       <div className="space-y-2">
-        {meals.length === 0 ? (
+        {sortedMeals.length === 0 ? (
           <div className="bg-white/50 border border-dashed border-gray-200 p-4 rounded-xl text-center text-xs text-gray-400 italic">
             기록된 {type}이 없습니다.
           </div>
         ) : (
-          meals.map(meal => (
+          sortedMeals.map(meal => (
             <SwipeableMealCard 
               key={meal.uuid} 
               meal={meal} 
@@ -114,9 +119,7 @@ const SwipeableMealCard: React.FC<{
   };
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (!isAdmin) {
-      return; // 터치 시작은 허용하되 스와이프 동작은 onTouchMove에서 제어
-    }
+    if (!isAdmin) return;
     if (meal.pending) return;
     startX.current = e.touches[0].clientX;
     isDragging.current = true;
@@ -124,18 +127,13 @@ const SwipeableMealCard: React.FC<{
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!isAdmin) return;
-    if (!isDragging.current) return;
+    if (!isAdmin || !isDragging.current) return;
     currentDiff.current = e.touches[0].clientX - startX.current;
     requestAnimationFrame(() => updateStyles(currentDiff.current));
   };
 
   const onTouchEnd = () => {
-    if (!isAdmin) {
-       // 일반 사용자가 클릭 시 수정 시도로 간주하여 팝업 (App.tsx에서 onEdit 호출 시 처리됨)
-       return;
-    }
-    if (!isDragging.current) return;
+    if (!isAdmin || !isDragging.current) return;
     isDragging.current = false;
     const dragX = currentDiff.current * 0.6;
     
@@ -196,7 +194,7 @@ const SwipeableMealCard: React.FC<{
         </div>
         <div className="text-right shrink-0 ml-2">
           <p className={`font-black tracking-tight ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>
-            {Math.round(meal.kcal)} <span className="text-[9px] font-bold opacity-50 ml-0.5">kcal</span>
+            {Math.round(meal.kcal)} <span className="text-[9px] font-bold ml-0.5">kcal</span>
           </p>
           <div className="flex items-center space-x-1 text-[9px] text-gray-400 justify-end font-bold">
             <span className={!isPlanned ? 'text-orange-500/80' : ''}>C {Math.round(meal.carbs || 0)}g</span>
