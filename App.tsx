@@ -219,8 +219,8 @@ const App: React.FC = () => {
       }
     });
 
-    text += `총 섭취: ${Math.round(summary.actual.kcal)}kcal / 계획: ${Math.round(summary.planned.kcal)}kcal\n`;
-    text += `영양합계(실제): 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
+    text += `총 섭취: ${Math.round(summary.actual.kcal)}kcal `;
+    text += `영양합계: 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
     
     navigator.clipboard.writeText(text).then(() => {
       showToast("식단이 클립보드에 복사되었습니다! 📋");
