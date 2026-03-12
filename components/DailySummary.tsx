@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { DailySummary } from '../types';
+import { getTargetKcal } from '../utils';
 
 interface Props {
   summary: DailySummary;
@@ -8,7 +9,7 @@ interface Props {
 }
 
 const DailySummaryView: React.FC<Props> = ({ summary, selectedDate }) => {
-  const targetKcal = 1500;
+  const targetKcal = getTargetKcal(selectedDate);
   
   const getKSTToday = () => {
     const now = new Date();

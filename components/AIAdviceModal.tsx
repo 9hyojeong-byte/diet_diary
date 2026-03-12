@@ -7,20 +7,22 @@ interface Props {
   onClose: () => void;
   currentKcal: number;
   currentProtein: number;
+  targetKcal: number;
+  targetProtein: number;
 }
 
-const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, currentKcal, currentProtein }) => {
+const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, currentKcal, currentProtein, targetKcal, targetProtein }) => {
   const [loading, setLoading] = useState(true);
   const [advice, setAdvice] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      getAIRecommendation(currentKcal, currentProtein)
+      getAIRecommendation(currentKcal, currentProtein, targetKcal, targetProtein)
         .then(res => setAdvice(res || "조언을 가져오는데 실패했어요. 다시 시도해볼까요?"))
         .finally(() => setLoading(false));
     }
-  }, [isOpen, currentKcal, currentProtein]);
+  }, [isOpen, currentKcal, currentProtein, targetKcal, targetProtein]);
 
   if (!isOpen) return null;
 

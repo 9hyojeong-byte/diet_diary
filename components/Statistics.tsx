@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { MealRecord, MealStatus } from '../types';
+import { getTargetKcal, getTargetProtein } from '../utils';
 
 interface StatisticsProps {
   meals: MealRecord[];
@@ -12,8 +13,6 @@ type DisplayFilter = 'all' | 'protein' | 'kcal';
 const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
   const [filter, setFilter] = useState<DisplayFilter>('all');
   
-  const TARGET_KCAL = 1500;
-  const TARGET_PROTEIN = 100;
   const KCAL_THRESHOLD = 0.2; // 20%
 
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
@@ -58,17 +57,21 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
   const getStats = (date: string) => {
     const data = dailyAggregates[date];
     if (!data) return null;
-    const isProteinSuccess = data.protein >= TARGET_PROTEIN;
+    const targetKcal = getTargetKcal(date);
+    const targetProtein = getTargetProtein(date);
+    const isProteinSuccess = data.protein >= targetProtein;
     const isKcalSuccess = 
-      data.kcal >= TARGET_KCAL * (1 - KCAL_THRESHOLD) && 
-      data.kcal <= TARGET_KCAL * (1 + KCAL_THRESHOLD);
+      data.kcal >= targetKcal * (1 - KCAL_THRESHOLD) && 
+      data.kcal <= targetKcal * (1 + KCAL_THRESHOLD);
     return { isProteinSuccess, isKcalSuccess, ...data };
   };
 
   const perfectDaysCount = useMemo(() => {
-    return Object.values(dailyAggregates).filter((d: any) => {
-      const isProteinSuccess = d.protein >= TARGET_PROTEIN;
-      const isKcalSuccess = d.kcal >= TARGET_KCAL * (1 - KCAL_THRESHOLD) && d.kcal <= TARGET_KCAL * (1 + KCAL_THRESHOLD);
+    return Object.entries(dailyAggregates).filter(([date, d]: [string, any]) => {
+      const targetKcal = getTargetKcal(date);
+      const targetProtein = getTargetProtein(date);
+      const isProteinSuccess = d.protein >= targetProtein;
+      const isKcalSuccess = d.kcal >= targetKcal * (1 - KCAL_THRESHOLD) && d.kcal <= targetKcal * (1 + KCAL_THRESHOLD);
       return isProteinSuccess && isKcalSuccess;
     }).length;
   }, [dailyAggregates]);
@@ -119,6 +122,17 @@ const Statistics: React.FC<StatisticsProps> = ({ meals, onDateSelect }) => {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* 가이드 카드 */}
+      <div className="bg-white p-6 rounded-[24px] border border-gray-100 text-xs text-gray-400 leading-relaxed">
+        <p className="font-bold text-gray-800 mb-2">💡 통계 가이드 (실제 섭취 기준)</p>
+        <ul className="space-y-1 list-disc pl-4">
+          <li><span className="text-emerald-500 font-bold">초록색 점</span>: 실제 단백질 목표량 이상 섭취 성공</li>
+          <li><span className="text-indigo-500 font-bold">보라색 점</span>: 실제 목표 칼로리 기준 ±20% 범위 안착 성공</li>
+          <li>날짜를 클릭하면 해당 일의 상세 식단을 볼 수 있습니다.</li>
+          <li className="italic text-indigo-400/80">취소(Canceled) 및 예정(Planned) 식단은 통계에 포함되지 않습니다.</li>
+        </ul>
       </div>
     </div>
   );

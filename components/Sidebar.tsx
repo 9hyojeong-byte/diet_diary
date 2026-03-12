@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import { getTargetKcal, getTargetProtein } from '../utils';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -9,12 +10,16 @@ interface SidebarProps {
   isAdmin?: boolean;
   onLogout?: () => void;
   onOpenAdminLogin?: () => void;
+  selectedDate?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout, onOpenAdminLogin }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout, onOpenAdminLogin, selectedDate }) => {
   const [taps, setTaps] = useState(0);
   // Browser environment might not have NodeJS namespace, using ReturnType of setTimeout instead
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const targetKcal = selectedDate ? getTargetKcal(selectedDate) : 1500;
+  const targetProtein = selectedDate ? getTargetProtein(selectedDate) : 100;
 
   const handleEasterEgg = () => {
     if (isAdmin) return;
@@ -100,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           className={`absolute bottom-6 left-6 right-6 p-4 rounded-2xl transition-all active:scale-[0.97] select-none ${taps > 0 ? 'bg-indigo-100' : 'bg-indigo-50'}`}
         >
           <p className="text-xs font-bold text-indigo-600 mb-1">식단 목표</p>
-          <p className="text-[10px] text-gray-500 italic">매일 1500kcal • 단백질 100g</p>
+          <p className="text-[10px] text-gray-500 italic">매일 {targetKcal}kcal • 단백질 {targetProtein}g</p>
           {taps > 0 && taps < 10 && (
             <div className="absolute top-1 right-2 text-[8px] font-black text-indigo-300 opacity-50">
               {taps}/10
