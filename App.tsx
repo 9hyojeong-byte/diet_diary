@@ -196,32 +196,37 @@ const App: React.FC = () => {
     return found ? found.name : '알 수 없는 식재료';
   }, [ingredients]);
 
-  const handleCopyTextToClipboard = useCallback(() => {
-    const actualMealsToCopy = filteredMeals.filter(m => m.status === MealStatus.ACTUAL);
-    if (actualMealsToCopy.length === 0) {
-      alert("섭취 완료된(ACTUAL) 식단이 없습니다.");
+  const handleCopyTextToClipboard = useCallback((includePlanned: boolean = false) => {
+    const mealsToCopy = filteredMeals.filter(m => 
+      m.status === MealStatus.ACTUAL || (includePlanned && m.status === MealStatus.PLANNED)
+    );
+    
+    if (mealsToCopy.length === 0) {
+      alert(includePlanned ? "복사할 식단이 없습니다." : "섭취 완료된(ACTUAL) 식단이 없습니다.");
       return;
     }
 
     const typeOrder = [MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER];
-    let text = `[${selectedDate} 식단 기록]\n\n`;
+    let text = `[${selectedDate} ${includePlanned ? '예정 ' : ''}식단 기록]\n\n`;
 
     typeOrder.forEach(type => {
       // 시간순 정렬 제거: 입력된 순서(배열 인덱스 순서) 유지
-      const typeMeals = actualMealsToCopy.filter(m => m.type === type);
+      const typeMeals = mealsToCopy.filter(m => m.type === type);
 
       if (typeMeals.length > 0) {
         text += `[${type}]\n`;
         typeMeals.forEach(m => {
           const name = getIngredientDisplayName(m);
-          text += `${m.time} | ${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+          const statusText = (includePlanned && m.status === MealStatus.PLANNED) ? '(예정) ' : '';
+          text += `${m.time} | ${statusText}${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
         });
         text += `\n`;
       }
     });
 
-    text += `총 섭취: ${Math.round(summary.actual.kcal)}kcal `;
-    text += `영양합계: 탄 ${Math.round(summary.actual.carbs)}g, 단 ${Math.round(summary.actual.protein)}g, 지 ${Math.round(summary.actual.fat)}g`;
+    const summaryToUse = includePlanned ? summary.planned : summary.actual;
+    text += `${includePlanned ? '총 섭취 예상' : '총 섭취'}: ${Math.round(summaryToUse.kcal)}kcal `;
+    text += `영양합계: 탄 ${Math.round(summaryToUse.carbs)}g, 단 ${Math.round(summaryToUse.protein)}g, 지 ${Math.round(summaryToUse.fat)}g`;
     
     navigator.clipboard.writeText(text).then(() => {
       showToast("식단이 클립보드에 복사되었습니다! 📋");
@@ -300,7 +305,11 @@ const App: React.FC = () => {
       
       <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
         <div className="flex items-center">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+          {currentView === 'main' ? (
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+          ) : (
+            <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
+          )}
           <h1 className="ml-2 text-xl font-bold">{currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : '나의 통계'}</h1>
         </div>
         {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
@@ -325,10 +334,16 @@ const App: React.FC = () => {
                 <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
                 <span>{currentDiary ? '건강 일기 보기' : '오늘의 건강 일기 작성'}</span>
               </button>
-              <button onClick={handleCopyTextToClipboard} className="w-full py-4 bg-white border-2 border-indigo-500 text-indigo-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2">
-                <span className="text-xl">📋</span>
-                <span>식단 리스트 복사하기</span>
-              </button>
+              <div className="flex space-x-3">
+                <button onClick={() => handleCopyTextToClipboard(false)} className="flex-1 py-4 bg-white border-2 border-indigo-500 text-indigo-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-1">
+                  <span className="text-lg">📋</span>
+                  <span className="text-sm">식단 복사</span>
+                </button>
+                <button onClick={() => handleCopyTextToClipboard(true)} className="flex-1 py-4 bg-indigo-50 border-2 border-indigo-400 text-indigo-700 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-1">
+                  <span className="text-lg">📝</span>
+                  <span className="text-sm">예상 포함 복사</span>
+                </button>
+              </div>
               <button onClick={() => setAdviceModalOpen(true)} className="w-full py-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center space-x-2"><span className="text-xl">✨</span><span>AI 영양 추천 받기</span></button>
             </div>
           </div>
