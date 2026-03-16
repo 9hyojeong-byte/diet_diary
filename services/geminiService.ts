@@ -1,26 +1,51 @@
 
 import { GoogleGenAI } from "@google/genai";
+import { DailySummary, MealRecord, MealStatus } from "../types";
 
 /**
  * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
  */
-export async function getAIRecommendation(currentKcal: number, currentProtein: number, targetKcal: number, targetProtein: number): Promise<string | undefined> {
-  // Always obtain the API key exclusively from process.env.API_KEY.
-  if (!process.env.API_KEY) {
-    console.error("GeminiService: API Key is missing in process.env.");
+export async function getAIRecommendation(
+  summary: DailySummary,
+  meals: MealRecord[],
+  targetKcal: number,
+  targetProtein: number
+): Promise<string | undefined> {
+  // Use VITE_API_KEY from environment variables (e.g., Vercel), fallback to process.env.API_KEY
+  const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
+
+  if (!apiKey) {
+    console.error("GeminiService: API Key is missing in environment variables.");
     return "AI 분석을 위한 설정을 확인해 주세요.";
   }
 
   try {
-    // Initializing the SDK with process.env.API_KEY directly as a named parameter.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Initializing the SDK with the retrieved API key
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
-    const prompt = `당신은 쿠쿠님의 다정한 전담 영양사입니다. 
-쿠쿠님의 현재 상태: 오늘 ${currentKcal.toFixed(0)}kcal 섭취, 단백질 ${currentProtein.toFixed(1)}g 섭취. 
-일일 목표: ${targetKcal}kcal, 단백질 ${targetProtein}g. 
-남은 할당량 내에서 먹어야 하는 단백질의 양과 kcal를 먼저 숫자로 명시하고, 부족한 양이 없다면 부족함 없이 잘 챙겨 섭취했다는 내용의 칭찬 한마디를 해주세요.
-부족한 양이 있다면 남은 할당량 내에서 부족한 단백질을 채울 수 있는 맛있는 메뉴 1가지를 추천하고 응원 한 마디를 해주세요. 
-답변은 다양한 이모지를 사용해서 한국어로 3문장 이내로 작성하세요.`;
+    // Filter only actual meals
+    const actualMeals = meals.filter(m => m.status === MealStatus.ACTUAL);
+    
+    // Create a string representation of meals
+    const mealListStr = actualMeals.length > 0 
+      ? actualMeals.map(m => `- ${m.type} (${m.time}): ${m.ingredient_name || '알 수 없는 식재료'} ${m.amount}g (${Math.round(m.kcal)}kcal)`).join('\n')
+      : '아직 섭취한 식단이 없습니다.';
+
+    const prompt = `너는 건강관리 및 다이어트 코치야. 
+현재 다이어트 중인 나(키 171cm, 체중 74kg, 목표체중 65kg)에게 오늘 먹은 식단이 적절했는지 평가해줘.
+말투는 친한 동생이 친한 누나에게 조언하듯 다정하고 친근하게 해주고, 칭찬을 듬뿍 곁들여줘. 사랑스러운 이모티콘을 많이 사용해줘.
+
+[오늘의 섭취 현황]
+- 일일 목표: ${targetKcal}kcal, 단백질 ${targetProtein}g
+- 총 섭취량: ${Math.round(summary.actual.kcal)}kcal
+- 탄수화물: ${Math.round(summary.actual.carbs)}g
+- 단백질: ${Math.round(summary.actual.protein)}g
+- 지방: ${Math.round(summary.actual.fat)}g
+
+[오늘 먹은 식단]
+${mealListStr}
+
+위 내용을 바탕으로 오늘 식단이 어땠는지, 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',

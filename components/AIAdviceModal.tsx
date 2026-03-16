@@ -1,28 +1,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { getAIRecommendation } from '../services/geminiService';
+import { DailySummary, MealRecord } from '../types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  currentKcal: number;
-  currentProtein: number;
+  summary: DailySummary;
+  meals: MealRecord[];
   targetKcal: number;
   targetProtein: number;
 }
 
-const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, currentKcal, currentProtein, targetKcal, targetProtein }) => {
+const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targetKcal, targetProtein }) => {
   const [loading, setLoading] = useState(true);
   const [advice, setAdvice] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      getAIRecommendation(currentKcal, currentProtein, targetKcal, targetProtein)
+      getAIRecommendation(summary, meals, targetKcal, targetProtein)
         .then(res => setAdvice(res || "조언을 가져오는데 실패했어요. 다시 시도해볼까요?"))
         .finally(() => setLoading(false));
     }
-  }, [isOpen, currentKcal, currentProtein, targetKcal, targetProtein]);
+  }, [isOpen, summary, meals, targetKcal, targetProtein]);
 
   if (!isOpen) return null;
 
