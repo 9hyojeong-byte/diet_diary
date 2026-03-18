@@ -108,6 +108,12 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin && currentView === 'memos') {
+      setCurrentView('main');
+    }
+  }, [isAdmin, currentView]);
+
   const filteredMeals = useMemo(() => meals.filter(m => String(m.date).startsWith(selectedDate) && m.status !== MealStatus.CANCELED), [meals, selectedDate]);
   const currentDiary = useMemo(() => diaries.find(d => d.date === selectedDate), [diaries, selectedDate]);
 
@@ -279,7 +285,13 @@ const App: React.FC = () => {
   }, [ingredients, isAdmin]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); localStorage.setItem('isAdmin', 'true'); } };
-  const handleLogout = () => { if (confirm('관리자 모드를 해제하시겠습니까?')) { setIsAdmin(false); localStorage.removeItem('isAdmin'); } };
+  const handleLogout = () => { 
+    if (confirm('관리자 모드를 해제하시겠습니까?')) { 
+      setIsAdmin(false); 
+      localStorage.removeItem('isAdmin'); 
+      if (currentView === 'memos') setCurrentView('main');
+    } 
+  };
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
