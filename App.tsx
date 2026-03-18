@@ -343,7 +343,16 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-2 space-y-3">
-              <button onClick={() => setIsDiaryOpen(true)} className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${currentDiary ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-dashed border-gray-200 text-gray-400'}`}>
+              <button 
+                onClick={() => {
+                  if (!isAdmin && !currentDiary) {
+                    alert(TRIAL_MESSAGE);
+                    return;
+                  }
+                  setIsDiaryOpen(true);
+                }} 
+                className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${currentDiary ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-dashed border-gray-200 text-gray-400'}`}
+              >
                 <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
                 <span>{currentDiary ? '건강 일기 보기' : '오늘의 건강 일기 작성'}</span>
               </button>

@@ -16,9 +16,13 @@ const DiaryModal: React.FC<Props> = ({ isOpen, onClose, selectedDate, diary, onS
 
   useEffect(() => {
     if (isOpen) {
-      setContent(diary?.content || '');
+      if (!isAdmin && diary) {
+        setContent('건강일기 샘플입니다');
+      } else {
+        setContent(diary?.content || '');
+      }
     }
-  }, [isOpen, diary]);
+  }, [isOpen, diary, isAdmin]);
 
   if (!isOpen) return null;
 
@@ -56,27 +60,30 @@ const DiaryModal: React.FC<Props> = ({ isOpen, onClose, selectedDate, diary, onS
 
         <div className="p-6">
           <textarea
-            autoFocus
+            autoFocus={isAdmin}
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            readOnly={!isAdmin}
             placeholder="오늘의 컨디션, 운동, 혹은 특별한 증상이 있었나요? 자유롭게 기록해 보세요."
-            className="w-full h-48 p-4 bg-emerald-50/30 rounded-2xl border-2 border-emerald-50 focus:border-emerald-500 outline-none font-medium text-gray-700 resize-none transition-all"
+            className={`w-full h-48 p-4 bg-emerald-50/30 rounded-2xl border-2 border-emerald-50 outline-none font-medium text-gray-700 resize-none transition-all ${isAdmin ? 'focus:border-emerald-500' : 'opacity-80'}`}
           />
           
           <div className="mt-6 flex space-x-3">
             <button 
               onClick={onClose}
-              className="flex-1 py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl active:scale-95 transition-all"
+              className={`py-4 bg-gray-100 text-gray-500 font-bold rounded-2xl active:scale-95 transition-all ${isAdmin ? 'flex-1' : 'w-full'}`}
             >
-              취소
+              {isAdmin ? '취소' : '닫기'}
             </button>
-            <button 
-              onClick={handleSave}
-              disabled={!content.trim() && !diary}
-              className="flex-[2] py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 active:scale-95 disabled:opacity-30 transition-all"
-            >
-              기록 저장하기
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={handleSave}
+                disabled={!content.trim() && !diary}
+                className="flex-[2] py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 active:scale-95 disabled:opacity-30 transition-all"
+              >
+                기록 저장하기
+              </button>
+            )}
           </div>
         </div>
       </div>
