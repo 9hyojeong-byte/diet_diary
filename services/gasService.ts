@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwlPotBMOeY_gdZRkxED3MM3MWC-ipsyd6-6P8Aq1s2Rwnzj5ldX_hGKB7ka7eOOIj9/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVajCg-14MgoztuRt5QmPBwRE57c5Cn5tFdAhTx3USJZrMsqtabzDps_TGxdRQgV3Z/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[] }> {
   try {
@@ -64,7 +64,12 @@ export async function fetchMemos(offset: number = 0, limit: number = 10): Promis
     }
     
     const data = await response.json();
-    return data.memos || [];
+    return (data.memos || []).map((m: any) => ({
+      id: m.id,
+      content: m.content,
+      createdAt: m.createdat || m.createdAt || new Date().toISOString(),
+      updatedAt: m.updatedat || m.updatedAt || new Date().toISOString()
+    }));
   } catch (error) {
     console.error("Failed to fetch memos from GAS", error);
     return [];
@@ -72,11 +77,21 @@ export async function fetchMemos(offset: number = 0, limit: number = 10): Promis
 }
 
 export async function saveMemoToGAS(memo: Memo): Promise<boolean> {
-  return callGAS('saveMemo', memo);
+  const payload = {
+    ...memo,
+    createdat: memo.createdAt,
+    updatedat: memo.updatedAt
+  };
+  return callGAS('saveMemo', payload);
 }
 
 export async function updateMemoInGAS(memo: Memo): Promise<boolean> {
-  return callGAS('updateMemo', memo);
+  const payload = {
+    ...memo,
+    createdat: memo.createdAt,
+    updatedat: memo.updatedAt
+  };
+  return callGAS('updateMemo', payload);
 }
 
 export async function deleteMemoFromGAS(id: string): Promise<boolean> {

@@ -63,9 +63,14 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
     }
 
     const now = new Date().toISOString();
+    
+    // 모달을 즉시 닫아서 빠른 UX 제공
+    setIsModalOpen(false);
+    
     if (editingMemo) {
       const updatedMemo: Memo = { ...editingMemo, content, updatedAt: now };
       setMemos(prev => prev.map(m => m.id === updatedMemo.id ? updatedMemo : m));
+      setEditingMemo(null);
       await updateMemoInGAS(updatedMemo);
     } else {
       const newMemo: Memo = {
@@ -77,8 +82,6 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
       setMemos(prev => [newMemo, ...prev]);
       await saveMemoToGAS(newMemo);
     }
-    setIsModalOpen(false);
-    setEditingMemo(null);
   };
 
   const handleDeleteMemo = async (id: string) => {
