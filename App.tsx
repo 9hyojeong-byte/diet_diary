@@ -9,6 +9,7 @@ import AIAdviceModal from './components/AIAdviceModal';
 import Sidebar from './components/Sidebar';
 import IngredientManagement from './components/IngredientManagement';
 import Statistics from './components/Statistics';
+import MemoList from './components/MemoList';
 import ExitModal from './components/ExitModal';
 import AdminLoginModal from './components/AdminLoginModal';
 import DiaryModal from './components/DiaryModal';
@@ -49,7 +50,7 @@ const App: React.FC = () => {
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('isAdmin') === 'true');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getKSTDate());
   
@@ -310,7 +311,7 @@ const App: React.FC = () => {
           ) : (
             <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
           )}
-          <h1 className="ml-2 text-xl font-bold">{currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : '나의 통계'}</h1>
+          <h1 className="ml-2 text-xl font-bold">{currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : currentView === 'memos' ? '메모 목록' : '나의 통계'}</h1>
         </div>
         {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
       </header>
@@ -349,6 +350,8 @@ const App: React.FC = () => {
           </div>
         ) : currentView === 'ingredients' ? (
           <IngredientManagement ingredients={ingredients} isAdmin={isAdmin} onToggleBookmark={handleToggleBookmark} onAddIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => [...p, ing]); saveIngredientToGAS(ing); }} onUpdateIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i)); updateIngredientInGAS(ing); }} onDeleteIngredient={id => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.filter(i => i.uuid !== id)); deleteIngredientFromGAS(id); }} trialMessage={TRIAL_MESSAGE} />
+        ) : currentView === 'memos' ? (
+          <MemoList isAdmin={isAdmin} trialMessage={TRIAL_MESSAGE} />
         ) : (
           <Statistics meals={meals} onDateSelect={(d) => { setSelectedDate(d); setCurrentView('main'); }} />
         )}

@@ -1,7 +1,7 @@
 
-import { MealRecord, Ingredient, MealStatus, HealthDiary } from '../types';
+import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxWHQBJymgrLZ6FKT8JVbaO2sKO_HlxmwQfuOiblpaNuHg8X9QM8dZbZdiP1V7bL_Xq/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwlPotBMOeY_gdZRkxED3MM3MWC-ipsyd6-6P8Aq1s2Rwnzj5ldX_hGKB7ka7eOOIj9/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[] }> {
   try {
@@ -50,6 +50,37 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     console.error("Failed to fetch from GAS", error);
     return { meals: [], ingredients: [], diaries: [] };
   }
+}
+
+export async function fetchMemos(offset: number = 0, limit: number = 10): Promise<Memo[]> {
+  try {
+    const response = await fetch(`${GAS_WEB_APP_URL}?action=getMemos&offset=${offset}&limit=${limit}`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`GAS HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.memos || [];
+  } catch (error) {
+    console.error("Failed to fetch memos from GAS", error);
+    return [];
+  }
+}
+
+export async function saveMemoToGAS(memo: Memo): Promise<boolean> {
+  return callGAS('saveMemo', memo);
+}
+
+export async function updateMemoInGAS(memo: Memo): Promise<boolean> {
+  return callGAS('updateMemo', memo);
+}
+
+export async function deleteMemoFromGAS(id: string): Promise<boolean> {
+  return callGAS('deleteMemo', { id });
 }
 
 export async function saveMealToGAS(meal: MealRecord): Promise<boolean> {

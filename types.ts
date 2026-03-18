@@ -65,3 +65,10 @@ export interface HealthDiary {
   updated_at: string;
   pending?: boolean;
 }
+
+export interface Memo {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
