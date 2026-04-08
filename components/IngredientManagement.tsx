@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Ingredient } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface Props {
   ingredients: Ingredient[];
@@ -121,12 +122,78 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, isAdmin, onToggleB
 const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => void, onSave: (ing: Ingredient) => void, onDelete: (uuid: string) => void }> = ({ target, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState({
     name: target?.name || '', 
-    base: target?.base_amount?.toString() || '1', 
+    base: target?.base_amount?.toString() || '100', 
     kcal: target?.kcal?.toString() || '', 
     carbs: target?.carbs?.toString() || '', 
     protein: target?.protein?.toString() || '', 
     fat: target?.fat?.toString() || ''
   });
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Data = (reader.result as string).split(',')[1];
+      setPreviewImage(reader.result as string);
+      setIsAnalyzing(true);
+
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: file.type,
+                  data: base64Data,
+                },
+              },
+              {
+                text: "이 영양성분표 이미지에서 식품의 이름, 1회 제공량(g), 칼로리(kcal), 탄수화물(g), 단백질(g), 지방(g)을 추출해줘. JSON 형식으로 응답해줘.",
+              },
+            ],
+          },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                base_amount: { type: Type.NUMBER },
+                kcal: { type: Type.NUMBER },
+                carbs: { type: Type.NUMBER },
+                protein: { type: Type.NUMBER },
+                fat: { type: Type.NUMBER },
+              },
+              required: ["name", "base_amount", "kcal", "carbs", "protein", "fat"],
+            },
+          },
+        });
+
+        const result = JSON.parse(response.text);
+        setFormData({
+          name: result.name || formData.name,
+          base: result.base_amount?.toString() || formData.base,
+          kcal: result.kcal?.toString() || formData.kcal,
+          carbs: result.carbs?.toString() || formData.carbs,
+          protein: result.protein?.toString() || formData.protein,
+          fat: result.fat?.toString() || formData.fat,
+        });
+      } catch (error) {
+        console.error("AI Analysis failed", error);
+        alert("이미지 분석에 실패했습니다. 수동으로 입력해주세요.");
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = () => {
     if (!formData.name || !formData.kcal) return;
@@ -153,11 +220,56 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-300">
-      <div className="bg-white w-full max-sm rounded-3xl overflow-hidden shadow-2xl">
-        <div className="p-6 bg-indigo-600 text-white">
+      <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="p-6 bg-indigo-600 text-white shrink-0">
           <h3 className="text-xl font-bold">{target ? '식재료 수정' : '신규 식재료 등록'}</h3>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto">
+          {!target && (
+            <div className="space-y-3">
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                ref={fileInputRef}
+                onChange={handleImageAnalysis}
+                className="hidden"
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isAnalyzing}
+                className="w-full py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold flex items-center justify-center space-x-2 border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span>이미지 분석 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>이미지 인식 (영양성분표)</span>
+                  </>
+                )}
+              </button>
+              {previewImage && (
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-gray-100 shadow-inner bg-gray-50">
+                  <img src={previewImage} alt="Preview" className="w-full h-full object-contain" />
+                  <button 
+                    onClick={() => setPreviewImage(null)}
+                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">식재료 이름</label>
             <input 
