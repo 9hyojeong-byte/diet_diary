@@ -136,6 +136,12 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
     });
   };
 
+  const sortedMemos = useMemo(() => {
+    return [...memos].sort((a, b) => {
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [memos]);
+
   if (loading && memos.length === 0) {
     return (
       <div className="flex justify-center items-center py-20">
@@ -147,13 +153,13 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
   return (
     <div className="pb-24 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="space-y-4">
-        {memos.length === 0 ? (
+        {sortedMemos.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
             <p className="text-gray-400 font-medium">작성된 메모가 없습니다.</p>
             <p className="text-sm text-gray-400 mt-1">우측 하단 버튼을 눌러 첫 메모를 작성해보세요!</p>
           </div>
         ) : (
-          memos.map(memo => (
+          sortedMemos.map(memo => (
             <div key={memo.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative group">
               <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
                 {renderContentWithLinks(memo.content)}
@@ -184,7 +190,7 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
         )}
       </div>
 
-      {hasMore && memos.length > 0 && (
+      {hasMore && sortedMemos.length > 0 && (
         <div className="mt-6 flex justify-center">
           <button 
             onClick={handleLoadMore} 
