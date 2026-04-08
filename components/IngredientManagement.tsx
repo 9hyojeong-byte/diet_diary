@@ -128,7 +128,8 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
     fat: target?.fat?.toString() || ''
   });
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -176,21 +177,39 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
               <input 
                 type="file" 
                 accept="image/*" 
-                capture="environment"
-                ref={fileInputRef}
+                ref={galleryInputRef}
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold flex items-center justify-center space-x-2 border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>영양성분표 이미지 첨부</span>
-              </button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                ref={cameraInputRef}
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold flex flex-col items-center justify-center space-y-1 border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-[10px]">이미지 첨부</span>
+                </button>
+                <button 
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold flex flex-col items-center justify-center space-y-1 border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-[10px]">이미지 촬영</span>
+                </button>
+              </div>
               {previewImage && (
                 <div className="flex justify-center">
                   <div className="relative w-[400px] rounded-xl overflow-hidden border border-gray-100 shadow-inner bg-gray-50">
