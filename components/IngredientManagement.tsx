@@ -121,12 +121,29 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, isAdmin, onToggleB
 const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => void, onSave: (ing: Ingredient) => void, onDelete: (uuid: string) => void }> = ({ target, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState({
     name: target?.name || '', 
-    base: target?.base_amount?.toString() || '100', 
+    base: target?.base_amount?.toString() || '1', 
     kcal: target?.kcal?.toString() || '', 
     carbs: target?.carbs?.toString() || '', 
     protein: target?.protein?.toString() || '', 
     fat: target?.fat?.toString() || ''
   });
+
+  const updateNutrient = (field: string, value: string) => {
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      // 탄단지 중 하나가 변경될 때만 칼로리 자동 계산
+      if (['carbs', 'protein', 'fat'].includes(field)) {
+        const c = parseFloat(field === 'carbs' ? value : next.carbs) || 0;
+        const p = parseFloat(field === 'protein' ? value : next.protein) || 0;
+        const f = parseFloat(field === 'fat' ? value : next.fat) || 0;
+        const calculated = Math.round((c * 4) + (p * 4) + (f * 9));
+        if (calculated > 0) {
+          next.kcal = calculated.toString();
+        }
+      }
+      return next;
+    });
+  };
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -239,25 +256,25 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">기준(g)</label>
-              <input value={formData.base} onChange={e => setFormData({...formData, base: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input value={formData.base} onChange={e => updateNutrient('base', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">칼로리(kcal)</label>
-              <input value={formData.kcal} onChange={e => setFormData({...formData, kcal: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input value={formData.kcal} onChange={e => updateNutrient('kcal', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">탄수화물(g)</label>
-              <input placeholder="탄" value={formData.carbs} onChange={e => setFormData({...formData, carbs: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input placeholder="탄" value={formData.carbs} onChange={e => updateNutrient('carbs', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">단백질(g)</label>
-              <input placeholder="단" value={formData.protein} onChange={e => setFormData({...formData, protein: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input placeholder="단" value={formData.protein} onChange={e => updateNutrient('protein', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase">지방(g)</label>
-              <input placeholder="지" value={formData.fat} onChange={e => setFormData({...formData, fat: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
+              <input placeholder="지" value={formData.fat} onChange={e => updateNutrient('fat', e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl border text-sm" />
             </div>
           </div>
           <div className="flex space-x-3 pt-4">
