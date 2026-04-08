@@ -2,6 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import './index.css';
 
 /**
  * 런타임에 API 키를 확실하게 확보하기 위한 브릿지 로직입니다.
