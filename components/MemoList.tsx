@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Memo } from '../types';
 import { fetchMemos, saveMemoToGAS, updateMemoInGAS, deleteMemoFromGAS } from '../services/gasService';
 import MemoInputModal from './MemoInputModal';
@@ -121,6 +121,7 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
   };
 
   const renderContentWithLinks = (content: string) => {
+    if (!content) return null;
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = content.split(urlRegex);
     
