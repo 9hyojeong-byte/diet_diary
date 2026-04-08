@@ -5,22 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>쿠쿠님의 스마트 식단</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4F46E5">
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_diet_margin.png">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_diet_margin.png">
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1"
-  }
-}
-</script>
 <style>
   body { 
     overscroll-behavior-y: contain; /* PWA에서 당겨서 새로고침 방지 */
@@ -31,8 +19,6 @@
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
     <div id="root"></div>
-    <!-- Vercel 등 호스팅 환경에서 React 앱을 실행하기 위한 진입점 스크립트입니다. -->
-    <script type="module" src="index.tsx"></script>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
