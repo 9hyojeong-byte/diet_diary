@@ -22,14 +22,22 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
     return found ? found.name : '알 수 없는 식재료';
   };
 
-  const totalProteinActual = useMemo(() => {
+  const totalsActual = useMemo(() => {
     return meals
       .filter(m => m.status === MealStatus.ACTUAL)
-      .reduce((sum, meal) => sum + (Number(meal.protein) || 0), 0);
+      .reduce((acc, meal) => ({
+        carbs: acc.carbs + (Number(meal.carbs) || 0),
+        protein: acc.protein + (Number(meal.protein) || 0),
+        fat: acc.fat + (Number(meal.fat) || 0),
+      }), { carbs: 0, protein: 0, fat: 0 });
   }, [meals]);
 
-  const totalProteinPlanned = useMemo(() => {
-    return meals.reduce((sum, meal) => sum + (Number(meal.protein) || 0), 0);
+  const totalsTotal = useMemo(() => {
+    return meals.reduce((acc, meal) => ({
+      carbs: acc.carbs + (Number(meal.carbs) || 0),
+      protein: acc.protein + (Number(meal.protein) || 0),
+      fat: acc.fat + (Number(meal.fat) || 0),
+    }), { carbs: 0, protein: 0, fat: 0 });
   }, [meals]);
 
   // 입력 순서(배열 인덱스 순서)를 그대로 유지하기 위해 정렬 로직 제거
@@ -50,8 +58,9 @@ const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd
             {type}
           </h4>
           {meals.length > 0 && (
-            <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
-              단백질 {Math.round(totalProteinActual)}g <span className="opacity-60">({Math.round(totalProteinPlanned)}g)</span>
+            <span className="text-[9px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-bold tracking-tighter">
+              C {Math.round(totalsActual.carbs)} P {Math.round(totalsActual.protein)} F {Math.round(totalsActual.fat)} 
+              <span className="opacity-60 ml-1">(C {Math.round(totalsTotal.carbs)} P {Math.round(totalsTotal.protein)} F {Math.round(totalsTotal.fat)})</span>
             </span>
           )}
         </div>

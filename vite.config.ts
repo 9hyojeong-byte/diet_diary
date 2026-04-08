@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        strictPort: true, // 포트가 바뀌지 않게 고정
+        hmr: {
+          clientPort: 443, // 보안 연결(HTTPS) 포트 명시
+        },
       },
       plugins: [
         react(),
