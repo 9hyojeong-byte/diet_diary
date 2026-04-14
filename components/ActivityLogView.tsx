@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { ActivityLog } from '../types';
 import ActivityDetailModal from './ActivityDetailModal';
+import { getTodayKST, formatDateToYYYYMMDD } from '../utils';
 
 interface Props {
   activities: ActivityLog[];
@@ -45,19 +46,13 @@ const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) =>
   };
 
   const handleDateClick = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToYYYYMMDD(date);
     const activity = activityMap[dateStr];
     if (activity) {
       setSelectedActivity(activity);
     } else {
       onNavigateToUpload(dateStr);
     }
-  };
-
-  const getKSTToday = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().split('T')[0];
   };
 
   return (
@@ -91,9 +86,9 @@ const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) =>
             {daysInMonth.map((date, i) => {
               if (!date) return <div key={`empty-${i}`} className="aspect-square" />;
               
-              const dateStr = date.toISOString().split('T')[0];
+              const dateStr = formatDateToYYYYMMDD(date);
               const hasActivity = !!activityMap[dateStr];
-              const isToday = dateStr === getKSTToday();
+              const isToday = dateStr === getTodayKST();
 
               return (
                 <button
@@ -115,11 +110,11 @@ const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) =>
       </div>
 
       <button
-        onClick={() => onNavigateToUpload(getKSTToday())}
+        onClick={() => onNavigateToUpload(getTodayKST())}
         className="fixed bottom-6 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
       >
         <span className="text-2xl group-hover:animate-bounce">💪</span>
-        {activityMap[getKSTToday()] && (
+        {activityMap[getTodayKST()] && (
           <span className="absolute top-0 right-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-full -translate-y-1/4 translate-x-1/4 animate-pulse"></span>
         )}
       </button>

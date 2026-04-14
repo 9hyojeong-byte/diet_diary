@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYC-cHMydHNnGr5Pkw0zlyXnt41GvSz19-jzr-hh3Fh9AidBsiEIXp4skmDifFL4U/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxT8uf8sy0cziSdqmpslsqiUuRYS3dFHDcA4Z-MdYbXp60sIKK7GT87l2mrRUm6YXFz/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
@@ -16,6 +16,18 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     
     const data = await response.json();
     
+    const toKSTDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      // GAS에서 넘어온 날짜가 ISO 형태(UTC)일 경우 KST로 변환
+      // 만약 이미 YYYY-MM-DD 형태라면 Date 객체 생성 시 로컬 타임으로 해석될 수 있으므로 주의
+      if (dateStr.includes('T')) {
+        const kst = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+        return kst.toISOString().split('T')[0];
+      }
+      return dateStr.split(' ')[0]; // 이미 날짜만 있는 경우
+    };
+
     const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
       ...ing,
       is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
@@ -30,6 +42,7 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
 
     const sanitizedMeals = (data.meals || []).map((meal: any) => ({
       ...meal,
+      date: toKSTDate(meal.date),
       status: (meal.status as MealStatus) || MealStatus.ACTUAL,
       amount: Number(meal.amount) || 0,
       kcal: Number(meal.kcal) || 0,
@@ -42,12 +55,13 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
 
     const sanitizedDiaries = (data.diaries || []).map((d: any) => ({
       ...d,
-      date: String(d.date).split('T')[0]
+      date: toKSTDate(d.date)
     }));
 
     const sanitizedActivities = (data.activities || []).map((a: any) => ({
       ...a,
-      date: String(a.date).split('T')[0],
+      uuid: a.uuid || crypto.randomUUID(),
+      date: toKSTDate(a.date),
       steps: Number(a.steps) || 0,
       active_calories: Number(a.active_calories) || 0,
       total_calories: Number(a.total_calories) || 0
@@ -146,8 +160,8 @@ export async function updateActivityInGAS(activity: ActivityLog): Promise<boolea
   return callGAS('updateActivity', activity);
 }
 
-export async function deleteActivityFromGAS(date: string): Promise<boolean> {
-  return callGAS('deleteActivity', { date });
+export async function deleteActivityFromGAS(uuid: string): Promise<boolean> {
+  return callGAS('deleteActivity', { uuid });
 }
 
 async function callGAS(action: string, data: any): Promise<boolean> {

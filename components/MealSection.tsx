@@ -1,6 +1,7 @@
 
 import React, { useMemo, useRef } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
+import { formatTime } from '../utils';
 
 interface Props {
   type: MealType;
@@ -197,7 +198,9 @@ const SwipeableMealCard: React.FC<{
               <span className="shrink-0 text-[9px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-sm font-black uppercase tracking-tighter">Planned</span>
             )}
           </div>
-          <p className="text-xs text-gray-400 font-medium">{meal.amount}g • {meal.time}</p>
+          <p className="text-xs text-gray-400 font-medium">
+            {meal.amount}g {!isPlanned && `• ${formatTime(meal.time)}`}
+          </p>
         </div>
         <div className="text-right shrink-0 ml-2">
           <p className={`font-black tracking-tight ${isPlanned ? 'text-gray-300' : 'text-indigo-600'}`}>

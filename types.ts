@@ -74,6 +74,7 @@ export interface Memo {
 }
 
 export interface ActivityLog {
+  uuid: string;
   date: string; // YYYY-MM-DD
   steps: number;
   active_calories: number;

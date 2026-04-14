@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { MealRecord, HealthDiary, ActivityLog } from '../types';
+import { getTodayKST, formatDateToYYYYMMDD } from '../utils';
 
 interface CalendarProps {
   selectedDate: string;
@@ -18,22 +19,9 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
     return new Date(y, m - 1, d);
   };
 
-  const toLocalDateString = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
   const [viewMonth, setViewMonth] = useState(parseLocalDate(selectedDate));
 
-  const getKSTToday = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().split('T')[0];
-  };
-
-  const todayStr = getKSTToday();
+  const todayStr = getTodayKST();
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
 
   const mealDates = useMemo(() => {
@@ -68,7 +56,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(curr);
       d.setDate(curr.getDate() - diffToMonday + i);
-      return toLocalDateString(d);
+      return formatDateToYYYYMMDD(d);
     });
   }, [selectedDate]);
 
@@ -83,7 +71,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
-      return toLocalDateString(d);
+      return formatDateToYYYYMMDD(d);
     });
   }, [viewMonth]);
 
@@ -93,7 +81,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
   };
 
   const handleGoToday = () => {
-    const today = getKSTToday();
+    const today = getTodayKST();
     onSelectDate(today);
     setViewMonth(parseLocalDate(today));
   };

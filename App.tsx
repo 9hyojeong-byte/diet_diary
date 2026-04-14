@@ -15,7 +15,7 @@ import AdminLoginModal from './components/AdminLoginModal';
 import DiaryModal from './components/DiaryModal';
 import ActivityLogView from './components/ActivityLogView';
 import ActivityUploadForm from './components/ActivityUploadForm';
-import { getTargetKcal, getTargetProtein } from './utils';
+import { getTargetKcal, getTargetProtein, getTodayKST, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime } from './utils';
 import { 
   fetchInitialData, 
   saveMealToGAS, 
@@ -37,29 +37,11 @@ const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴�
 const FOOD_EMOJIS = ['🥗', '🍎', '🥑', '🍗', '🍳', '🥛', '🍣', '🍱', '🥣', '🥦', '🍌', '🥪', '🥙', '🥗'];
 
 const App: React.FC = () => {
-  const getKSTDate = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().split('T')[0];
-  };
-
-  const getKSTTime = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().split('T')[1].slice(0, 5);
-  };
-
-  const getKSTFullTime = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().replace('T', ' ').slice(0, 19);
-  };
-
   const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('isAdmin') === 'true');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos' | 'activity'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(getKSTDate());
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayKST());
   
   const [meals, setMeals] = useState<MealRecord[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -237,8 +219,10 @@ const App: React.FC = () => {
         text += `[${type}]\n`;
         typeMeals.forEach(m => {
           const name = getIngredientDisplayName(m);
-          const statusText = (includePlanned && m.status === MealStatus.PLANNED) ? '(예정) ' : '';
-          text += `${m.time} | ${statusText}${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+          const isPlanned = m.status === MealStatus.PLANNED;
+          const statusText = (includePlanned && isPlanned) ? '(예정) ' : '';
+          const timeText = isPlanned ? '' : `${formatTime(m.time)} | `;
+          text += `${timeText}${statusText}${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
         });
         text += `\n`;
       }
@@ -284,17 +268,17 @@ const App: React.FC = () => {
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
-    const isUpdate = activities.some(a => a.date === activity.date);
+    const isUpdate = activities.some(a => a.uuid === activity.uuid);
     
     setActivities(prev => {
-      const exists = prev.some(a => a.date === activity.date);
-      return exists ? prev.map(a => a.date === activity.date ? { ...activity, pending: true } : a) : [...prev, { ...activity, pending: true }];
+      const exists = prev.some(a => a.uuid === activity.uuid);
+      return exists ? prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: true } : a) : [...prev, { ...activity, pending: true }];
     });
     setIsActivityUploadOpen(false);
     try {
       const success = isUpdate ? await updateActivityInGAS(activity) : await saveActivityToGAS(activity);
       if (success) {
-        setActivities(prev => prev.map(a => a.date === activity.date ? { ...activity, pending: false } : a));
+        setActivities(prev => prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: false } : a));
         showToast(isUpdate ? "활동 기록이 수정되었습니다! 💪" : "활동 기록이 저장되었습니다! 💪");
       } else throw new Error("Activity storage failed");
     } catch (error) {
@@ -303,13 +287,13 @@ const App: React.FC = () => {
     }
   }, [activities, isAdmin]);
 
-  const onDeleteActivity = useCallback(async (date: string) => {
+  const onDeleteActivity = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
-    setActivities(prev => prev.filter(a => a.date !== date));
+    setActivities(prev => prev.filter(a => a.uuid !== uuid));
     setIsActivityUploadOpen(false);
     try {
-      const success = await deleteActivityFromGAS(date);
+      const success = await deleteActivityFromGAS(uuid);
       if (!success) throw new Error("Activity deletion failed");
       showToast("활동 기록이 삭제되었습니다.");
     } catch (error) {

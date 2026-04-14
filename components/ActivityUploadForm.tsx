@@ -55,6 +55,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     setIsSaving(true);
     try {
       await onSave({
+        uuid: existingActivity?.uuid || crypto.randomUUID(),
         date,
         steps: parseInt(steps) || 0,
         active_calories: parseInt(activeCals) || 0,
@@ -199,7 +200,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
               <button 
                 onClick={() => {
                   if (confirm('정말 이 활동 기록을 삭제하시겠습니까?')) {
-                    onDelete(existingActivity.date);
+                    onDelete(existingActivity.uuid);
                   }
                 }}
                 className="px-4 py-4 bg-red-50 text-red-500 font-black rounded-2xl border border-red-100 transition-all text-xs hover:bg-red-100 active:scale-95"
