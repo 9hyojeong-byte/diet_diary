@@ -1,9 +1,9 @@
 
-import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo } from '../types';
+import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVajCg-14MgoztuRt5QmPBwRE57c5Cn5tFdAhTx3USJZrMsqtabzDps_TGxdRQgV3Z/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYC-cHMydHNnGr5Pkw0zlyXnt41GvSz19-jzr-hh3Fh9AidBsiEIXp4skmDifFL4U/exec';
 
-export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[] }> {
+export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
       method: 'GET',
@@ -45,10 +45,18 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
       date: String(d.date).split('T')[0]
     }));
 
-    return { meals: sanitizedMeals, ingredients: sanitizedIngredients, diaries: sanitizedDiaries };
+    const sanitizedActivities = (data.activities || []).map((a: any) => ({
+      ...a,
+      date: String(a.date).split('T')[0],
+      steps: Number(a.steps) || 0,
+      active_calories: Number(a.active_calories) || 0,
+      total_calories: Number(a.total_calories) || 0
+    }));
+
+    return { meals: sanitizedMeals, ingredients: sanitizedIngredients, diaries: sanitizedDiaries, activities: sanitizedActivities };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [] };
+    return { meals: [], ingredients: [], diaries: [], activities: [] };
   }
 }
 
@@ -128,6 +136,10 @@ export async function updateIngredientBookmark(uuid: string, isBookmarked: boole
 
 export async function saveDiaryToGAS(diary: HealthDiary): Promise<boolean> {
   return callGAS('saveDiary', diary);
+}
+
+export async function saveActivityToGAS(activity: ActivityLog): Promise<boolean> {
+  return callGAS('saveActivity', activity);
 }
 
 async function callGAS(action: string, data: any): Promise<boolean> {

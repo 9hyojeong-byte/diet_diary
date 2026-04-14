@@ -13,6 +13,8 @@ import MemoList from './components/MemoList';
 import ExitModal from './components/ExitModal';
 import AdminLoginModal from './components/AdminLoginModal';
 import DiaryModal from './components/DiaryModal';
+import ActivityLogView from './components/ActivityLogView';
+import ActivityUploadForm from './components/ActivityUploadForm';
 import { getTargetKcal, getTargetProtein } from './utils';
 import { 
   fetchInitialData, 
@@ -22,8 +24,11 @@ import {
   updateIngredientInGAS,
   deleteIngredientFromGAS,
   updateIngredientBookmark,
-  saveDiaryToGAS
+  saveDiaryToGAS,
+  saveActivityToGAS
 } from './services/gasService';
+
+import { ActivityLog } from './types';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
@@ -50,13 +55,14 @@ const App: React.FC = () => {
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('isAdmin') === 'true');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos' | 'activity'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getKSTDate());
   
   const [meals, setMeals] = useState<MealRecord[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [diaries, setDiaries] = useState<HealthDiary[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
@@ -64,6 +70,8 @@ const App: React.FC = () => {
   
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [isActivityUploadOpen, setIsActivityUploadOpen] = useState(false);
+  const [activityUploadDate, setActivityUploadDate] = useState<string>('');
   const [editMealTarget, setEditMealTarget] = useState<MealRecord | null>(null);
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
@@ -81,6 +89,7 @@ const App: React.FC = () => {
       if (isSidebarOpen) { setIsSidebarOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
       if (isInputOpen) { setIsInputOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
       if (isDiaryOpen) { setIsDiaryOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
+      if (isActivityUploadOpen) { setIsActivityUploadOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
       if (adviceModalOpen) { setAdviceModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
       if (isAdminLoginOpen) { setIsAdminLoginOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
       setIsExitModalOpen(true);
@@ -98,6 +107,7 @@ const App: React.FC = () => {
         setMeals(data.meals || []);
         setIngredients(data.ingredients || []);
         setDiaries(data.diaries || []);
+        setActivities(data.activities || []);
       } catch (error) {
         console.error("Failed to load data", error);
         showToast("데이터를 불러오는 중 오류가 발생했습니다.");
@@ -116,6 +126,7 @@ const App: React.FC = () => {
 
   const filteredMeals = useMemo(() => meals.filter(m => String(m.date).startsWith(selectedDate) && m.status !== MealStatus.CANCELED), [meals, selectedDate]);
   const currentDiary = useMemo(() => diaries.find(d => d.date === selectedDate), [diaries, selectedDate]);
+  const currentActivity = useMemo(() => activities.find(a => a.date === selectedDate), [activities, selectedDate]);
 
   const summary = useMemo(() => {
     const initial = { kcal: 0, carbs: 0, protein: 0, fat: 0 };
@@ -268,6 +279,26 @@ const App: React.FC = () => {
     }
   }, [selectedDate, currentDiary, diaries, isAdmin]);
 
+  const onSaveActivity = useCallback(async (activity: ActivityLog) => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    const prevActivities = [...activities];
+    setActivities(prev => {
+      const exists = prev.some(a => a.date === activity.date);
+      return exists ? prev.map(a => a.date === activity.date ? { ...activity, pending: true } : a) : [...prev, { ...activity, pending: true }];
+    });
+    setIsActivityUploadOpen(false);
+    try {
+      const success = await saveActivityToGAS(activity);
+      if (success) {
+        setActivities(prev => prev.map(a => a.date === activity.date ? { ...activity, pending: false } : a));
+        showToast("활동 기록이 저장되었습니다! 💪");
+      } else throw new Error("Activity storage failed");
+    } catch (error) {
+      setActivities(prevActivities);
+      showToast("활동 기록 저장에 실패했습니다.");
+    }
+  }, [activities, isAdmin]);
+
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
@@ -321,9 +352,15 @@ const App: React.FC = () => {
           {currentView === 'main' ? (
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
           ) : (
-            <button onClick={() => setCurrentView('main')} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
+            <button onClick={() => { setCurrentView('main'); setIsActivityUploadOpen(false); }} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
           )}
-          <h1 className="ml-2 text-xl font-bold">{currentView === 'main' ? '쿠쿠님의 식단 기록' : currentView === 'ingredients' ? '식재료 관리' : currentView === 'memos' ? '메모 목록' : '나의 통계'}</h1>
+          <h1 className="ml-2 text-xl font-bold">
+            {isActivityUploadOpen ? '활동 기록 업로드' : 
+             currentView === 'main' ? '쿠쿠님의 식단 기록' : 
+             currentView === 'ingredients' ? '식재료 관리' : 
+             currentView === 'memos' ? '메모 목록' : 
+             currentView === 'activity' ? '활동량 기록' : '나의 통계'}
+          </h1>
         </div>
         {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
       </header>
@@ -331,9 +368,16 @@ const App: React.FC = () => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
 
       <main className="p-4">
-        {currentView === 'main' ? (
+        {isActivityUploadOpen ? (
+          <ActivityUploadForm 
+            initialDate={activityUploadDate} 
+            existingActivity={activities.find(a => a.date === activityUploadDate)}
+            onSave={onSaveActivity} 
+            onCancel={() => setIsActivityUploadOpen(false)} 
+          />
+        ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} />
+            <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
             <DailySummaryView summary={summary} selectedDate={selectedDate} />
 
             <div className="space-y-4">
@@ -373,6 +417,14 @@ const App: React.FC = () => {
           <IngredientManagement ingredients={ingredients} isAdmin={isAdmin} onToggleBookmark={handleToggleBookmark} onAddIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => [...p, ing]); saveIngredientToGAS(ing); }} onUpdateIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i)); updateIngredientInGAS(ing); }} onDeleteIngredient={id => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.filter(i => i.uuid !== id)); deleteIngredientFromGAS(id); }} trialMessage={TRIAL_MESSAGE} />
         ) : currentView === 'memos' ? (
           <MemoList isAdmin={isAdmin} trialMessage={TRIAL_MESSAGE} />
+        ) : currentView === 'activity' ? (
+          <ActivityLogView 
+            activities={activities} 
+            onNavigateToUpload={(date) => {
+              setActivityUploadDate(date);
+              setIsActivityUploadOpen(true);
+            }} 
+          />
         ) : (
           <Statistics meals={meals} onDateSelect={(d) => { setSelectedDate(d); setCurrentView('main'); }} />
         )}
@@ -380,9 +432,22 @@ const App: React.FC = () => {
 
       {!isAdmin && <button onClick={() => setIsAdminLoginOpen(true)} className="fixed bottom-6 right-6 w-12 h-12 bg-white text-indigo-600 rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 border-2 border-indigo-50"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg></button>}
 
+      {currentView === 'main' && !isActivityUploadOpen && (
+        <button 
+          onClick={() => {
+            if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+            setActivityUploadDate(getKSTDate());
+            setIsActivityUploadOpen(true);
+          }}
+          className="fixed bottom-24 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
+        >
+          <span className="text-2xl group-hover:animate-bounce">💪</span>
+        </button>
+      )}
+
       {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
-      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} />}
+      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} activity={currentActivity} />}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); }} />}
     </div>

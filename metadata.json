@@ -1,5 +1,5 @@
 {
-  "name": "[쿠쿠식단기록]",
+  "name": "[쿠쿠식단기록](진)",
   "description": "A PWA diet management app using Google Sheets as a database and Gemini for personalized nutritional advice.",
   "requestFramePermissions": []
 }

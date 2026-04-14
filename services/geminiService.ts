@@ -1,15 +1,16 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DailySummary, MealRecord, MealStatus } from "../types";
+import { DailySummary, MealRecord, MealStatus, ActivityLog } from "../types";
 
 /**
- * 쿠쿠님의 현재 영양 섭취 상태를 기반으로 Gemini AI 추천을 가져옵니다.
+ * 쿠쿠님의 현재 영양 섭취 상태와 활동량을 기반으로 Gemini AI 추천을 가져옵니다.
  */
 export async function getAIRecommendation(
   summary: DailySummary,
   meals: MealRecord[],
   targetKcal: number,
-  targetProtein: number
+  targetProtein: number,
+  activity?: ActivityLog
 ): Promise<string | undefined> {
   // Use VITE_API_KEY from environment variables (e.g., Vercel), fallback to process.env.API_KEY
   const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -31,8 +32,12 @@ export async function getAIRecommendation(
       ? actualMeals.map(m => `- ${m.type} (${m.time}): ${m.ingredient_name || '알 수 없는 식재료'} ${m.amount}g (${Math.round(m.kcal)}kcal)`).join('\n')
       : '아직 섭취한 식단이 없습니다.';
 
+    const activityStr = activity 
+      ? `- 걸음수: ${activity.steps.toLocaleString()}보\n- 활동 칼로리: ${activity.active_calories}kcal\n- 총 소모 칼로리: ${activity.total_calories}kcal`
+      : '오늘의 활동 기록이 아직 없습니다.';
+
     const prompt = `너는 건강관리 및 다이어트 코치야. 
-현재 다이어트 중인 나(현재 10kg을 빼야함.)에게 오늘 먹은 식단이 적절했는지 평가해줘.
+현재 다이어트 중인 나(현재 10kg을 빼야함.)에게 오늘 먹은 식단과 활동량이 적절했는지 평가해줘.
 나는 건강하게 지속적인 다이어트를 진행하고자 해. 한 달에 2kg정도씩 감량하는게 목표야. 
 말투는 친한 동생이 친한 누나에게 조언하듯 다정하고 친근하게 해주고, 칭찬을 듬뿍 곁들여줘. 사랑스러운 이모티콘을 많이 사용해줘.
 금지 할 것 : 체중감량목표치 언급
@@ -47,7 +52,10 @@ export async function getAIRecommendation(
 [오늘 먹은 식단]
 ${mealListStr}
 
-위 내용을 바탕으로 오늘 식단이 어땠는지, 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
+[오늘의 활동 현황]
+${activityStr}
+
+위 내용을 바탕으로 오늘 식단과 운동이 어땠는지, 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -59,5 +67,57 @@ ${mealListStr}
   } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
     return "AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+  }
+}
+
+export async function analyzeActivityImage(base64Image: string): Promise<{ steps: number, active_calories: number, total_calories: number } | null> {
+  const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
+
+  if (!apiKey) {
+    console.error("GeminiService: API Key is missing.");
+    return null;
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+    
+    const prompt = `이 이미지는 운동 기록(걸음수, 칼로리 소모량 등)이 포함된 스크린샷이야.
+이미지에서 다음 정보를 찾아줘:
+1. 걸음수 (steps)
+2. 활동 칼로리 (active calories)
+3. 총 칼로리 소모량 (total calories)
+
+결과는 반드시 다음과 같은 JSON 형식으로만 응답해줘. 다른 설명은 하지 마.
+{
+  "steps": 숫자,
+  "active_calories": 숫자,
+  "total_calories": 숫자
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: base64Image.split(',')[1] || base64Image
+          }
+        },
+        { text: prompt }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    return {
+      steps: Number(result.steps) || 0,
+      active_calories: Number(result.active_calories) || 0,
+      total_calories: Number(result.total_calories) || 0
+    };
+  } catch (error) {
+    console.error("Gemini Activity Analysis Error:", error);
+    return null;
   }
 }

@@ -1,15 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { MealRecord, HealthDiary } from '../types';
+import { MealRecord, HealthDiary, ActivityLog } from '../types';
 
 interface CalendarProps {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   meals: MealRecord[];
   diaries: HealthDiary[];
+  activities: ActivityLog[];
 }
 
-const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, diaries }) => {
+const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, diaries, activities }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const parseLocalDate = (dateStr: string) => {
@@ -50,6 +51,14 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
     });
     return dates;
   }, [diaries]);
+
+  const activityDates = useMemo(() => {
+    const dates = new Set<string>();
+    activities.forEach(a => {
+      if (a.date) dates.add(String(a.date).split('T')[0]);
+    });
+    return dates;
+  }, [activities]);
 
   const currentWeek = useMemo(() => {
     const curr = parseLocalDate(selectedDate);
@@ -147,6 +156,7 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
             const isToday = date === todayStr;
             const hasMeal = mealDates.has(date);
             const hasDiary = diaryDates.has(date);
+            const hasActivity = activityDates.has(date);
             const isCurrentMonth = d.getMonth() === viewMonth.getMonth();
             const dayNum = d.getDate();
 
@@ -175,6 +185,9 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
                   )}
                   {hasDiary && (
                     <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-emerald-200' : 'bg-emerald-500'}`}></span>
+                  )}
+                  {hasActivity && (
+                    <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-red-200' : 'bg-red-500'}`}></span>
                   )}
                 </div>
               </button>

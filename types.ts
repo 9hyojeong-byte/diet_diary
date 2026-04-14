@@ -72,3 +72,13 @@ export interface Memo {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ActivityLog {
+  date: string; // YYYY-MM-DD
+  steps: number;
+  active_calories: number;
+  total_calories: number;
+  image_url?: string;
+  created_at?: string;
+  pending?: boolean;
+}

@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: './',  // 👈 이 줄을 추가해 주세요!
+      base: '/',  
       server: {
         port: 3000,
         host: '0.0.0.0',

@@ -41,6 +41,8 @@ function doPost(e) {
     updateRowByKey('Memos', 'id', data.id, data);
   } else if (action === 'deleteMemo') {
     deleteRowByKey('Memos', 'id', data.id);
+  } else if (action === 'saveActivity') {
+    saveActivity(data);
   }
   
   return ContentService.createTextOutput(JSON.stringify({success: true}))
@@ -53,6 +55,7 @@ function getSheets() {
   let mealsSheet = ss.getSheetByName('Meals');
   let diariesSheet = ss.getSheetByName('HealthDiaries');
   let memosSheet = ss.getSheetByName('Memos');
+  let activitySheet = ss.getSheetByName('activity_logs');
   
   if (!ingredientsSheet) {
     ingredientsSheet = ss.insertSheet('Ingredients');
@@ -73,16 +76,22 @@ function getSheets() {
     memosSheet = ss.insertSheet('Memos');
     memosSheet.appendRow(['id', 'content', 'createdAt', 'updatedAt']);
   }
+
+  if (!activitySheet) {
+    activitySheet = ss.insertSheet('activity_logs');
+    activitySheet.appendRow(['date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at']);
+  }
   
-  return { ingredientsSheet, mealsSheet, diariesSheet, memosSheet };
+  return { ingredientsSheet, mealsSheet, diariesSheet, memosSheet, activitySheet };
 }
 
 function getAllData() {
-  const { ingredientsSheet, mealsSheet, diariesSheet } = getSheets();
+  const { ingredientsSheet, mealsSheet, diariesSheet, activitySheet } = getSheets();
   return { 
     ingredients: dataToJson(ingredientsSheet.getDataRange().getDisplayValues()), 
     meals: dataToJson(mealsSheet.getDataRange().getDisplayValues()),
-    diaries: dataToJson(diariesSheet.getDataRange().getDisplayValues())
+    diaries: dataToJson(diariesSheet.getDataRange().getDisplayValues()),
+    activities: dataToJson(activitySheet.getDataRange().getDisplayValues())
   };
 }
 
@@ -151,6 +160,28 @@ function saveMemo(memo) {
   const headers = memosSheet.getRange(1, 1, 1, memosSheet.getLastColumn()).getValues()[0].map(h => h.trim().toLowerCase());
   const rowData = headers.map(header => memo[header] || '');
   memosSheet.appendRow(rowData);
+}
+
+function saveActivity(activity) {
+  const { activitySheet } = getSheets();
+  const data = activitySheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const dateIndex = headers.indexOf('date');
+  
+  let foundRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][dateIndex]) === String(activity.date)) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  const rowData = headers.map(h => activity[h] || '');
+  if (foundRow !== -1) {
+    activitySheet.getRange(foundRow, 1, 1, headers.length).setValues([rowData]);
+  } else {
+    activitySheet.appendRow(rowData);
+  }
 }
 
 // 공통 업데이트 함수 (uuid 또는 id 등 특정 키를 기준으로 업데이트)
