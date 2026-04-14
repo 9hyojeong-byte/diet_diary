@@ -142,6 +142,14 @@ export async function saveActivityToGAS(activity: ActivityLog): Promise<boolean>
   return callGAS('saveActivity', activity);
 }
 
+export async function updateActivityInGAS(activity: ActivityLog): Promise<boolean> {
+  return callGAS('updateActivity', activity);
+}
+
+export async function deleteActivityFromGAS(date: string): Promise<boolean> {
+  return callGAS('deleteActivity', { date });
+}
+
 async function callGAS(action: string, data: any): Promise<boolean> {
   try {
     const response = await fetch(GAS_WEB_APP_URL, {

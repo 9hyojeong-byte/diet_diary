@@ -25,7 +25,9 @@ import {
   deleteIngredientFromGAS,
   updateIngredientBookmark,
   saveDiaryToGAS,
-  saveActivityToGAS
+  saveActivityToGAS,
+  updateActivityInGAS,
+  deleteActivityFromGAS
 } from './services/gasService';
 
 import { ActivityLog } from './types';
@@ -282,20 +284,37 @@ const App: React.FC = () => {
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
+    const isUpdate = activities.some(a => a.date === activity.date);
+    
     setActivities(prev => {
       const exists = prev.some(a => a.date === activity.date);
       return exists ? prev.map(a => a.date === activity.date ? { ...activity, pending: true } : a) : [...prev, { ...activity, pending: true }];
     });
     setIsActivityUploadOpen(false);
     try {
-      const success = await saveActivityToGAS(activity);
+      const success = isUpdate ? await updateActivityInGAS(activity) : await saveActivityToGAS(activity);
       if (success) {
         setActivities(prev => prev.map(a => a.date === activity.date ? { ...activity, pending: false } : a));
-        showToast("활동 기록이 저장되었습니다! 💪");
+        showToast(isUpdate ? "활동 기록이 수정되었습니다! 💪" : "활동 기록이 저장되었습니다! 💪");
       } else throw new Error("Activity storage failed");
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 저장에 실패했습니다.");
+    }
+  }, [activities, isAdmin]);
+
+  const onDeleteActivity = useCallback(async (date: string) => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    const prevActivities = [...activities];
+    setActivities(prev => prev.filter(a => a.date !== date));
+    setIsActivityUploadOpen(false);
+    try {
+      const success = await deleteActivityFromGAS(date);
+      if (!success) throw new Error("Activity deletion failed");
+      showToast("활동 기록이 삭제되었습니다.");
+    } catch (error) {
+      setActivities(prevActivities);
+      showToast("활동 기록 삭제에 실패했습니다.");
     }
   }, [activities, isAdmin]);
 
@@ -355,8 +374,7 @@ const App: React.FC = () => {
             <button onClick={() => { setCurrentView('main'); setIsActivityUploadOpen(false); }} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
           )}
           <h1 className="ml-2 text-xl font-bold">
-            {isActivityUploadOpen ? '활동 기록 업로드' : 
-             currentView === 'main' ? '쿠쿠님의 식단 기록' : 
+            {currentView === 'main' ? '쿠쿠님의 식단 기록' : 
              currentView === 'ingredients' ? '식재료 관리' : 
              currentView === 'memos' ? '메모 목록' : 
              currentView === 'activity' ? '활동량 기록' : '나의 통계'}
@@ -368,14 +386,7 @@ const App: React.FC = () => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
 
       <main className="p-4">
-        {isActivityUploadOpen ? (
-          <ActivityUploadForm 
-            initialDate={activityUploadDate} 
-            existingActivity={activities.find(a => a.date === activityUploadDate)}
-            onSave={onSaveActivity} 
-            onCancel={() => setIsActivityUploadOpen(false)} 
-          />
-        ) : currentView === 'main' ? (
+        {currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
             <DailySummaryView summary={summary} selectedDate={selectedDate} />
@@ -430,22 +441,33 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {!isAdmin && <button onClick={() => setIsAdminLoginOpen(true)} className="fixed bottom-6 right-6 w-12 h-12 bg-white text-indigo-600 rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 border-2 border-indigo-50"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg></button>}
-
       {currentView === 'main' && !isActivityUploadOpen && (
         <button 
           onClick={() => {
             if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
-            setActivityUploadDate(getKSTDate());
+            setActivityUploadDate(selectedDate);
             setIsActivityUploadOpen(true);
           }}
-          className="fixed bottom-24 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
+          className="fixed bottom-6 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
         >
           <span className="text-2xl group-hover:animate-bounce">💪</span>
+          {currentActivity && (
+            <span className="absolute top-0 right-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-full -translate-y-1/4 translate-x-1/4 animate-pulse"></span>
+          )}
         </button>
       )}
 
       {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
+      {isActivityUploadOpen && (
+        <ActivityUploadForm 
+          isOpen={isActivityUploadOpen}
+          initialDate={activityUploadDate} 
+          existingActivity={activities.find(a => a.date === activityUploadDate)}
+          onSave={onSaveActivity} 
+          onDelete={onDeleteActivity}
+          onCancel={() => setIsActivityUploadOpen(false)} 
+        />
+      )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
       {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} activity={currentActivity} />}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}

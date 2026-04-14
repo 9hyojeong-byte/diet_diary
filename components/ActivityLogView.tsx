@@ -116,9 +116,12 @@ const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) =>
 
       <button
         onClick={() => onNavigateToUpload(getKSTToday())}
-        className="fixed bottom-24 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
+        className="fixed bottom-6 right-6 bg-white border-2 border-indigo-600 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-40 group"
       >
         <span className="text-2xl group-hover:animate-bounce">💪</span>
+        {activityMap[getKSTToday()] && (
+          <span className="absolute top-0 right-0 w-4 h-4 bg-indigo-500 border-2 border-white rounded-full -translate-y-1/4 translate-x-1/4 animate-pulse"></span>
+        )}
       </button>
 
       {selectedActivity && (
