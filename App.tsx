@@ -154,12 +154,14 @@ const App: React.FC = () => {
     if (!target || target.status === status) return;
     const prevMeals = [...meals];
     
-    // ACTUAL이면 현재 시각, PLANNED이면 23:59로 자동 설정
-    const newTime = status === MealStatus.ACTUAL 
-      ? getKSTTime() 
-      : (status === MealStatus.PLANNED ? '23:59' : target.time);
+    // ACTUAL로 전환 시 현재 시각/날짜, PLANNED로 전환 시 23:59
+    const isToActual = status === MealStatus.ACTUAL;
+    const isToPlanned = status === MealStatus.PLANNED;
+    
+    const newTime = isToActual ? getKSTTime() : (isToPlanned ? '23:59' : target.time);
+    const newDate = isToActual ? getTodayKST() : target.date;
 
-    const updatedMeal: MealRecord = { ...target, status, time: newTime, pending: true };
+    const updatedMeal: MealRecord = { ...target, status, time: newTime, date: newDate, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
       const success = await updateMealInGAS(updatedMeal);

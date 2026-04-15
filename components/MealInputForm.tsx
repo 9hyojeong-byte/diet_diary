@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
+import { getKSTTime, getTodayKST } from '../utils';
 
 interface Props {
   isOpen: boolean;
@@ -17,12 +18,6 @@ interface Props {
 }
 
 const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onDelete, trialMessage }) => {
-  const getKSTTime = () => {
-    const now = new Date();
-    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-    return kst.toISOString().split('T')[1].slice(0, 5);
-  };
-
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
@@ -158,8 +153,10 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     
     if (!preview) return;
     
-    // 시간 로직 수정
+    // 시간/날짜 로직 수정
     let finalTime = time;
+    let finalDate = date;
+    
     if (finalStatus === MealStatus.PLANNED) {
       // 예정(PLANNED)으로 저장 시 항상 23:59
       finalTime = '23:59';
@@ -172,7 +169,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       uuid: editTarget?.uuid || crypto.randomUUID(),
       type,
       status: finalStatus,
-      date,
+      date: finalDate,
       time: finalTime,
       ingredient_name: finalIngredientName,
       ingredient_uuid: finalIngredientUuid,
