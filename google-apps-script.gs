@@ -166,25 +166,28 @@ function getOrCreateSheet(name, headers) {
 // 실제 사용시 기존에 잘 작동하던 코드를 유지하면서 activity_logs 부분만 위 코드로 교체하시면 됩니다.
 
 function saveMeal(data) {
-  const sheet = getOrCreateSheet('meals', ['uuid', 'type', 'status', 'date', 'time', 'ingredient_uuid', 'ingredient_name', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber']);
-  sheet.appendRow([data.uuid, data.type, data.status, data.date, data.time, data.ingredient_uuid, data.ingredient_name, data.amount, data.kcal, data.carbs, data.protein, data.fat, data.sugar, data.fiber]);
+  // 1. 헤더 순서를 [name, uuid] 순으로 변경
+  const headers = ['uuid', 'type', 'status', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber'];
+  const sheet = getOrCreateSheet('meals', headers);
+  
+  // 2. 입력 데이터도 헤더 순서와 똑같이 맞춤
+  sheet.appendRow([
+    data.uuid, 
+    data.type, 
+    data.status, 
+    data.date, 
+    data.time, 
+    data.ingredient_name, // name 먼저
+    data.ingredient_uuid, // uuid 나중
+    data.amount, 
+    data.kcal, 
+    data.carbs, 
+    data.protein, 
+    data.fat, 
+    data.sugar, 
+    data.fiber
+  ]);
   return true;
-}
-
-function updateMeal(data) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('meals');
-  if (!sheet) return false;
-  const rows = sheet.getDataRange().getValues();
-  const uuidIdx = rows[0].indexOf('uuid');
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][uuidIdx] === data.uuid) {
-      const headers = rows[0];
-      const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
-      sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
-      return true;
-    }
-  }
-  return false;
 }
 
 function deleteMeal(uuid) {

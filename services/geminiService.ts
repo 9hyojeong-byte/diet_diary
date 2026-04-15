@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DailySummary, MealRecord, MealStatus, ActivityLog } from "../types";
+import { DailySummary, MealRecord, MealStatus, ActivityLog, HealthDiary } from "../types";
 
 /**
  * 쿠쿠님의 현재 영양 섭취 상태와 활동량을 기반으로 Gemini AI 추천을 가져옵니다.
@@ -10,7 +10,8 @@ export async function getAIRecommendation(
   meals: MealRecord[],
   targetKcal: number,
   targetProtein: number,
-  activity?: ActivityLog
+  activity?: ActivityLog,
+  diary?: HealthDiary
 ): Promise<string | undefined> {
   // Use VITE_API_KEY from environment variables (e.g., Vercel), fallback to process.env.API_KEY
   const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
@@ -36,10 +37,15 @@ export async function getAIRecommendation(
       ? `- 걸음수: ${activity.steps.toLocaleString()}보\n- 활동 칼로리: ${activity.active_calories}kcal\n- 총 소모 칼로리: ${activity.total_calories}kcal`
       : '오늘의 활동 기록이 아직 없습니다.';
 
+    const diaryStr = diary && diary.content.trim()
+      ? `- 건강 일기 내용: ${diary.content}`
+      : '오늘 작성된 건강 일기가 없습니다.';
+
     const prompt = `너는 건강관리 및 다이어트 코치야. 
 현재 다이어트 중인 나(현재 10kg을 빼야함.)에게 오늘 먹은 식단과 활동량이 적절했는지 평가해줘.
 나는 건강하게 지속적인 다이어트를 진행하고자 해. 한 달에 2kg정도씩 감량하는게 목표야. 
 말투는 친한 동생이 친한 누나에게 조언하듯 다정하고 친근하게 해주고, 칭찬을 듬뿍 곁들여줘. 사랑스러운 이모티콘을 많이 사용해줘.
+목표한 다이어트를 위한 운동량이 부족해보인다면 그에 대해서도 언급 및 조언을 해줘. 
 금지 할 것 : 체중감량목표치 언급
 
 [오늘의 섭취 현황]
@@ -54,6 +60,9 @@ ${mealListStr}
 
 [오늘의 활동 현황]
 ${activityStr}
+
+[오늘의 건강 일기]
+${diaryStr}
 
 위 내용을 바탕으로 오늘 식단과 운동이 어땠는지, 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
 

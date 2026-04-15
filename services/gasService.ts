@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxT8uf8sy0cziSdqmpslsqiUuRYS3dFHDcA4Z-MdYbXp60sIKK7GT87l2mrRUm6YXFz/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw4Jzn3-5RW9xdSu_e2PbyYKRPHZW7et0TXTx4_ava4hVJb1GpdYHp1BC98b2W1rWUi/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
@@ -121,11 +121,43 @@ export async function deleteMemoFromGAS(id: string): Promise<boolean> {
 }
 
 export async function saveMealToGAS(meal: MealRecord): Promise<boolean> {
-  return callGAS('saveMeal', meal);
+  const orderedMeal = {
+    uuid: meal.uuid,
+    type: meal.type,
+    status: meal.status,
+    date: meal.date,
+    time: meal.time,
+    ingredient_name: meal.ingredient_name,
+    ingredient_uuid: meal.ingredient_uuid,
+    amount: meal.amount,
+    kcal: meal.kcal,
+    carbs: meal.carbs,
+    protein: meal.protein,
+    fat: meal.fat,
+    sugar: meal.sugar,
+    fiber: meal.fiber
+  };
+  return callGAS('saveMeal', orderedMeal);
 }
 
 export async function updateMealInGAS(meal: MealRecord): Promise<boolean> {
-  return callGAS('updateMeal', meal);
+  const orderedMeal = {
+    uuid: meal.uuid,
+    type: meal.type,
+    status: meal.status,
+    date: meal.date,
+    time: meal.time,
+    ingredient_name: meal.ingredient_name,
+    ingredient_uuid: meal.ingredient_uuid,
+    amount: meal.amount,
+    kcal: meal.kcal,
+    carbs: meal.carbs,
+    protein: meal.protein,
+    fat: meal.fat,
+    sugar: meal.sugar,
+    fiber: meal.fiber
+  };
+  return callGAS('updateMeal', orderedMeal);
 }
 
 export async function deleteMealFromGAS(uuid: string): Promise<boolean> {
@@ -166,10 +198,23 @@ export async function deleteActivityFromGAS(uuid: string): Promise<boolean> {
 
 async function callGAS(action: string, data: any): Promise<boolean> {
   try {
+    // 식단 저장/수정 시 필드 순서가 중요하므로 JSON.stringify의 replacer 배열을 사용하여 순서를 강제합니다.
+    let body: string;
+    if (action === 'saveMeal' || action === 'updateMeal') {
+      const mealKeys = [
+        'uuid', 'type', 'status', 'date', 'time', 
+        'ingredient_name', 'ingredient_uuid', 
+        'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber'
+      ];
+      body = JSON.stringify({ action, data }, ['action', 'data', ...mealKeys]);
+    } else {
+      body = JSON.stringify({ action, data });
+    }
+
     const response = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       redirect: 'follow',
-      body: JSON.stringify({ action, data }),
+      body: body,
     });
     return response.ok;
   } catch (e) {

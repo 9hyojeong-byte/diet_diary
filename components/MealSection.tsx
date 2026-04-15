@@ -16,11 +16,13 @@ interface Props {
 
 const MealSection: React.FC<Props> = ({ type, meals, ingredients, isAdmin, onAdd, onEdit, onDelete, onSetStatus }) => {
   const getIngredientDisplayName = (meal: MealRecord) => {
+    const targetUuid = String(meal.ingredient_uuid || '').trim();
+    if (targetUuid && targetUuid !== 'direct-entry') {
+      const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
+      if (found) return found.name;
+    }
     if (meal.ingredient_name) return meal.ingredient_name;
-    if (!meal.ingredient_uuid) return '식재료 정보 없음';
-    const targetUuid = String(meal.ingredient_uuid).trim();
-    const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
-    return found ? found.name : '알 수 없는 식재료';
+    return '식재료 정보 없음';
   };
 
   const totalsActual = useMemo(() => {

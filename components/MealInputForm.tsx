@@ -30,12 +30,15 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(
-    (editTarget && !isDirectEntryEdit) ? (ingredients.find(i => String(i.uuid) === String(editTarget.ingredient_uuid)) || null) : null
-  );
+  const initialIngredient = useMemo(() => {
+    if (!editTarget || isDirectEntryEdit) return null;
+    return ingredients.find(i => String(i.uuid).trim() === String(editTarget.ingredient_uuid).trim()) || null;
+  }, [editTarget, isDirectEntryEdit, ingredients]);
+
+  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(initialIngredient);
   const [amount, setAmount] = useState(editTarget?.amount.toString() || '1');
   
-  const [isAddingNew, setIsAddingNew] = useState(isDirectEntryEdit);
+  const [isAddingNew, setIsAddingNew] = useState(isDirectEntryEdit || (!!editTarget && !initialIngredient));
   const [newName, setNewName] = useState(editTarget?.ingredient_name || '');
   const [newBase, setNewBase] = useState(editTarget?.amount.toString() || '1');
   const [newKcal, setNewKcal] = useState(editTarget?.kcal.toString() || '');

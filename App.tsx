@@ -191,11 +191,13 @@ const App: React.FC = () => {
   }, [meals, isAdmin]);
 
   const getIngredientDisplayName = useCallback((meal: MealRecord) => {
+    const targetUuid = String(meal.ingredient_uuid || '').trim();
+    if (targetUuid && targetUuid !== 'direct-entry') {
+      const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
+      if (found) return found.name;
+    }
     if (meal.ingredient_name) return meal.ingredient_name;
-    if (!meal.ingredient_uuid) return '식재료 정보 없음';
-    const targetUuid = String(meal.ingredient_uuid).trim();
-    const found = ingredients.find(i => String(i.uuid).trim() === targetUuid);
-    return found ? found.name : '알 수 없는 식재료';
+    return '식재료 정보 없음';
   }, [ingredients]);
 
   const handleCopyTextToClipboard = useCallback((includePlanned: boolean = false) => {
@@ -453,7 +455,7 @@ const App: React.FC = () => {
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
-      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} activity={currentActivity} />}
+      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} activity={currentActivity} diary={currentDiary} />}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); }} />}
     </div>
