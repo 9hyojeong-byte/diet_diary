@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
-import { getKSTTime, getTodayKST } from '../utils';
+import { getKSTTime, getTodayKST, getKSTTimeWithOffset } from '../utils';
 
 interface Props {
   isOpen: boolean;
@@ -21,7 +21,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
-  const [time, setTime] = useState(editTarget?.time || getKSTTime());
+  const [time, setTime] = useState(editTarget?.time || getKSTTimeWithOffset(-60));
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   
   const [searchTerm, setSearchTerm] = useState('');

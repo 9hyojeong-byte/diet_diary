@@ -190,6 +190,22 @@ function saveMeal(data) {
   return true;
 }
 
+function updateMeal(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('meals');
+  if (!sheet) return false;
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const uuidIdx = headers.indexOf('uuid');
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][uuidIdx] === data.uuid) {
+      const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
+      sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
+      return true;
+    }
+  }
+  return false;
+}
+
 function deleteMeal(uuid) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('meals');
   if (!sheet) return false;

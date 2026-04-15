@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw4Jzn3-5RW9xdSu_e2PbyYKRPHZW7et0TXTx4_ava4hVJb1GpdYHp1BC98b2W1rWUi/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfdRVhm4HUlEMuvyvOlSHxlJU1sXqmQXDHMAoiWL-eUCENtg0m5x1zAZPt-vlMRxbX/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {

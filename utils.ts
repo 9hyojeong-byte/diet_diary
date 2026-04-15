@@ -7,16 +7,29 @@ export const formatDateToYYYYMMDD = (date: Date): string => {
 
 export const getTodayKST = (): string => {
   const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const kst = new Date(utc + (9 * 60 * 60 * 1000));
-  return formatDateToYYYYMMDD(kst);
+  const kstDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  return formatDateToYYYYMMDD(kstDate);
 };
 
 export const getKSTTime = (): string => {
   const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const kst = new Date(utc + (9 * 60 * 60 * 1000));
-  return kst.toISOString().split('T')[1].slice(0, 5);
+  const kstTime = now.toLocaleTimeString('en-GB', { 
+    timeZone: 'Asia/Seoul', 
+    hour12: false, 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  return kstTime;
+};
+
+export const getKSTTimeWithOffset = (offsetMinutes: number): string => {
+  const now = new Date();
+  const kstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const offsetTime = new Date(kstNow.getTime() + (offsetMinutes * 60 * 1000));
+  
+  const hours = String(offsetTime.getHours()).padStart(2, '0');
+  const minutes = String(offsetTime.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
 };
 
 export const getKSTFullTime = (): string => {
