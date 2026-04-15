@@ -161,8 +161,9 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       // 예정(PLANNED)으로 저장 시 항상 23:59
       finalTime = '23:59';
     } else if (finalStatus === MealStatus.ACTUAL && editTarget?.status === MealStatus.PLANNED) {
-      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 적용
+      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 및 날짜 적용
       finalTime = getKSTTime();
+      finalDate = getTodayKST();
     }
     
     onSave({
