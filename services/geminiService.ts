@@ -130,3 +130,46 @@ export async function analyzeActivityImage(base64Image: string): Promise<{ steps
     return null;
   }
 }
+
+export async function analyzeMealDescription(description: string): Promise<{ name: string, carbs: number, protein: number, fat: number } | null> {
+  const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
+
+  if (!apiKey) {
+    console.error("GeminiService: API Key is missing.");
+    return null;
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+    
+    const prompt = `사용자가 입력한 식단 설명을 바탕으로 영양 성분(탄수화물, 단백질, 지방)을 추산하고, 식단 이름을 10자 내외로 요약해줘.
+설명: "${description}"
+
+결과는 반드시 다음과 같은 JSON 형식으로만 응답해줘. 다른 설명은 하지 마.
+{
+  "name": "요약된 식단 이름",
+  "carbs": 숫자(g),
+  "protein": 숫자(g),
+  "fat": 숫자(g)
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    return {
+      name: result.name || description.slice(0, 10),
+      carbs: Number(result.carbs) || 0,
+      protein: Number(result.protein) || 0,
+      fat: Number(result.fat) || 0
+    };
+  } catch (error) {
+    console.error("Gemini Meal Analysis Error:", error);
+    return null;
+  }
+}

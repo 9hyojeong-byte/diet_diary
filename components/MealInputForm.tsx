@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
 import { getKSTTime, getTodayKST, getKSTTimeWithOffset } from '../utils';
+import { analyzeMealDescription } from '../services/geminiService';
 
 interface Props {
   isOpen: boolean;
@@ -41,6 +42,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [newProtein, setNewProtein] = useState(editTarget?.protein.toString() || '');
   const [newFat, setNewFat] = useState(editTarget?.fat.toString() || '');
   const [shouldSaveToIngredients, setShouldSaveToIngredients] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
 
   const yesterdayMeals = useMemo(() => {
     if (editTarget) return []; 
@@ -102,6 +104,29 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       if (calculated >= 0) setNewKcal(calculated.toFixed(1));
     }
   }, [newCarbs, newProtein, newFat, isAddingNew]);
+
+  const handleAiAnalysis = async () => {
+    if (!newName.trim()) {
+      alert("식단 이름을 먼저 입력해 주세요.");
+      return;
+    }
+    setIsAiAnalyzing(true);
+    try {
+      const result = await analyzeMealDescription(newName);
+      if (result) {
+        setNewName(result.name);
+        setNewCarbs(result.carbs.toString());
+        setNewProtein(result.protein.toString());
+        setNewFat(result.fat.toString());
+      } else {
+        alert("AI 분석에 실패했습니다. 다시 시도해 주세요.");
+      }
+    } catch (error) {
+      alert("오류가 발생했습니다.");
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
 
   const preview = useMemo(() => {
     if (isAddingNew) {
@@ -358,8 +383,26 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
           ) : isAddingNew ? (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식단 이름</label>
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="이름 (예: 엄마표 볶음밥)" className="w-full p-4 rounded-2xl border bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold" />
+                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">식단 이름 (AI 분석 가능)</label>
+                <div className="flex space-x-2">
+                  <input 
+                    value={newName} 
+                    onChange={e => setNewName(e.target.value)} 
+                    placeholder="예: 닭가슴살 샐러드와 고구마 1개" 
+                    className="flex-1 p-4 rounded-2xl border bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold" 
+                  />
+                  <button 
+                    onClick={handleAiAnalysis}
+                    disabled={isAiAnalyzing}
+                    className="px-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg active:scale-95 disabled:opacity-50 transition-all text-xs flex items-center justify-center min-w-[60px]"
+                  >
+                    {isAiAnalyzing ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      "AI"
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
