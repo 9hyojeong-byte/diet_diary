@@ -207,42 +207,56 @@ const App: React.FC = () => {
       m.status === MealStatus.ACTUAL || (includePlanned && m.status === MealStatus.PLANNED)
     );
     
-    if (mealsToCopy.length === 0) {
-      alert(includePlanned ? "복사할 식단이 없습니다." : "섭취 완료된(ACTUAL) 식단이 없습니다.");
+    if (mealsToCopy.length === 0 && !currentDiary && !currentActivity) {
+      alert("복사할 데이터(식단, 일기, 활동량)가 없습니다.");
       return;
     }
 
     const typeOrder = [MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER];
-    let text = `[${selectedDate} ${includePlanned ? '예정 ' : ''}식단 기록]\n\n`;
+    let text = `오늘의 식단, 건강일기, 활동량기록이야.\n현재 170cm, 73kg인 내가 65kg이 되기위한 꾸준한 다이어트(한달에 -2kg목표) 를 위한 하루로써 어떤지 평가해줘. 그리고 조언해줘.\n\n`;
+    text += `[${selectedDate} ${includePlanned ? '예정 ' : ''}기록]\n\n`;
 
-    typeOrder.forEach(type => {
-      // 시간순 정렬 제거: 입력된 순서(배열 인덱스 순서) 유지
-      const typeMeals = mealsToCopy.filter(m => m.type === type);
+    if (mealsToCopy.length > 0) {
+      text += `[식단]\n`;
+      typeOrder.forEach(type => {
+        const typeMeals = mealsToCopy.filter(m => m.type === type);
+        if (typeMeals.length > 0) {
+          text += `- ${type}\n`;
+          typeMeals.forEach(m => {
+            const name = getIngredientDisplayName(m);
+            const isPlanned = m.status === MealStatus.PLANNED;
+            const statusText = (includePlanned && isPlanned) ? '(예정) ' : '';
+            const timeText = isPlanned ? '' : `${formatTime(m.time)} | `;
+            text += `  ${timeText}${statusText}${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
+          });
+        }
+      });
 
-      if (typeMeals.length > 0) {
-        text += `[${type}]\n`;
-        typeMeals.forEach(m => {
-          const name = getIngredientDisplayName(m);
-          const isPlanned = m.status === MealStatus.PLANNED;
-          const statusText = (includePlanned && isPlanned) ? '(예정) ' : '';
-          const timeText = isPlanned ? '' : `${formatTime(m.time)} | `;
-          text += `${timeText}${statusText}${name} (${m.amount}g) - ${Math.round(m.kcal)}kcal (탄:${Math.round(m.carbs)}g, 단:${Math.round(m.protein)}g, 지:${Math.round(m.fat)}g)\n`;
-        });
-        text += `\n`;
-      }
-    });
+      const summaryToUse = includePlanned ? summary.planned : summary.actual;
+      text += `\n${includePlanned ? '총 섭취 예상' : '총 섭취'}: ${Math.round(summaryToUse.kcal)}kcal `;
+      text += `영양합계: 탄 ${Math.round(summaryToUse.carbs)}g, 단 ${Math.round(summaryToUse.protein)}g, 지 ${Math.round(summaryToUse.fat)}g\n\n`;
+    }
 
-    const summaryToUse = includePlanned ? summary.planned : summary.actual;
-    text += `${includePlanned ? '총 섭취 예상' : '총 섭취'}: ${Math.round(summaryToUse.kcal)}kcal `;
-    text += `영양합계: 탄 ${Math.round(summaryToUse.carbs)}g, 단 ${Math.round(summaryToUse.protein)}g, 지 ${Math.round(summaryToUse.fat)}g`;
+    if (currentDiary) {
+      text += `[건강 일기]\n${currentDiary.content}\n\n`;
+    }
+
+    if (currentActivity) {
+      text += `[활동량]\n`;
+      text += `- 걸음 수: ${currentActivity.steps.toLocaleString()}보\n`;
+      text += `- 활동 칼로리: ${currentActivity.active_calories}kcal\n`;
+      text += `- 총 소모 칼로리: ${currentActivity.total_calories}kcal\n\n`;
+    }
+    
+    text = text.trim();
     
     navigator.clipboard.writeText(text).then(() => {
-      showToast("식단이 클립보드에 복사되었습니다! 📋");
+      showToast("기록이 클립보드에 복사되었습니다! 📋");
     }).catch(err => {
       console.error("Clipboard copy failed", err);
       showToast("복사에 실패했습니다.");
     });
-  }, [filteredMeals, selectedDate, summary, getIngredientDisplayName]);
+  }, [filteredMeals, selectedDate, summary, getIngredientDisplayName, currentDiary, currentActivity]);
 
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
