@@ -41,10 +41,25 @@ export const getKSTFullTime = (): string => {
 
 export const formatTime = (timeStr: string): string => {
   if (!timeStr) return '';
-  if (String(timeStr).includes('T')) {
-    return String(timeStr).split('T')[1].slice(0, 5);
+  const s = String(timeStr);
+  
+  // 이미 HH:mm 형식인 경우 그대로 반환
+  if (/^\d{2}:\d{2}$/.test(s)) return s;
+  
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      // ISO 문자열인 경우 KST를 고려하지 않고 해당 문자열의 시간 부분만 추출 (데이터 정제 단계에서 이미 처리됨을 가정)
+      return s.split('T')[1].slice(0, 5);
+    }
   }
-  return String(timeStr).slice(0, 5);
+
+  const match = s.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    return `${match[1].padStart(2, '0')}:${match[2]}`;
+  }
+
+  return s.slice(0, 5);
 };
 
 export const getTargetKcal = (dateString: string): number => {

@@ -68,19 +68,13 @@ function getSheetData(sheetName) {
   if (!sheet) return [];
   
   const range = sheet.getDataRange();
-  const values = range.getValues();
   const displayValues = range.getDisplayValues();
-  const headers = values[0];
+  const headers = displayValues[0];
   
-  return values.slice(1).map((row, rowIndex) => {
+  return displayValues.slice(1).map((row) => {
     const obj = {};
     headers.forEach((header, i) => {
-      const val = row[i];
-      if (val instanceof Date) {
-        obj[header] = displayValues[rowIndex + 1][i];
-      } else {
-        obj[header] = val;
-      }
+      obj[header] = row[i];
     });
     return obj;
   });
@@ -91,20 +85,13 @@ function getMemos(offset, limit) {
   if (!sheet) return [];
   
   const range = sheet.getDataRange();
-  const values = range.getValues();
   const displayValues = range.getDisplayValues();
-  const headers = values[0];
+  const headers = displayValues[0];
   
-  // 데이터 가공 (Date 처리)
-  const processedRows = values.slice(1).map((row, rowIndex) => {
+  const processedRows = displayValues.slice(1).map((row) => {
     const obj = {};
     headers.forEach((header, i) => {
-      const val = row[i];
-      if (val instanceof Date) {
-        obj[header] = displayValues[rowIndex + 1][i];
-      } else {
-        obj[header] = val;
-      }
+      obj[header] = row[i];
     });
     return obj;
   }).reverse(); // 최신순

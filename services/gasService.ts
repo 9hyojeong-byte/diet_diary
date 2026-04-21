@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzW2SGnxTTd72MxbUYsIDoi7ACT87aOjikjsrF5a1FMM3jZvZeTruxgp7QcXd8sxR1L/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwYKVmC8DwVJDw9bKhqp0c319C7U3VP-qVfOFInPKCKHgLtYD9a44aModunz62v_-TX/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
@@ -48,6 +48,36 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
       return String(dateStr).split(' ')[0];
     };
 
+    const toKSTTime = (timeStr: string) => {
+      if (!timeStr) return '00:00';
+      const s = String(timeStr);
+      
+      // ISO (UTC) 형식 처리: T03:58:00.000Z -> KST 변환 후 시간 추출
+      if (s.includes('T')) {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          const kst = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+          return kst.toISOString().split('T')[1].slice(0, 5);
+        }
+      }
+
+      // "12:26:00" 또는 "12:26" 등 형식에서 HH:mm 추출
+      const match = s.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        return `${match[1].padStart(2, '0')}:${match[2]}`;
+      }
+
+      // 오전/오후 형식 (예: "오후 12:26") 처리
+      if (s.includes('오전') || s.includes('오후') || s.includes('AM') || s.includes('PM')) {
+        const d = new Date(`2000-01-01 ${s.replace('오전', 'AM').replace('오후', 'PM')}`);
+        if (!isNaN(d.getTime())) {
+          return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+      }
+
+      return s.slice(0, 5);
+    };
+
     const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
       ...ing,
       is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
@@ -63,6 +93,7 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     const sanitizedMeals = (data.meals || []).map((meal: any) => ({
       ...meal,
       date: toKSTDate(meal.date),
+      time: toKSTTime(meal.time),
       status: (meal.status as MealStatus) || MealStatus.ACTUAL,
       amount: Number(meal.amount) || 0,
       kcal: Number(meal.kcal) || 0,
