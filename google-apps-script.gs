@@ -67,14 +67,20 @@ function getSheetData(sheetName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return [];
   
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1);
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  const displayValues = range.getDisplayValues();
+  const headers = values[0];
   
-  return rows.map(row => {
+  return values.slice(1).map((row, rowIndex) => {
     const obj = {};
     headers.forEach((header, i) => {
-      obj[header] = row[i];
+      const val = row[i];
+      if (val instanceof Date) {
+        obj[header] = displayValues[rowIndex + 1][i];
+      } else {
+        obj[header] = val;
+      }
     });
     return obj;
   });
@@ -83,14 +89,27 @@ function getSheetData(sheetName) {
 function getMemos(offset, limit) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('memos');
   if (!sheet) return [];
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1).reverse(); // 최신순
-  return rows.slice(offset, offset + limit).map(row => {
+  
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  const displayValues = range.getDisplayValues();
+  const headers = values[0];
+  
+  // 데이터 가공 (Date 처리)
+  const processedRows = values.slice(1).map((row, rowIndex) => {
     const obj = {};
-    headers.forEach((header, i) => obj[header] = row[i]);
+    headers.forEach((header, i) => {
+      const val = row[i];
+      if (val instanceof Date) {
+        obj[header] = displayValues[rowIndex + 1][i];
+      } else {
+        obj[header] = val;
+      }
+    });
     return obj;
-  });
+  }).reverse(); // 최신순
+  
+  return processedRows.slice(offset, offset + limit);
 }
 
 // --- Activity Logs (UUID Based) ---

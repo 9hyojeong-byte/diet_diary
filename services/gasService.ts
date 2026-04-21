@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfdRVhm4HUlEMuvyvOlSHxlJU1sXqmQXDHMAoiWL-eUCENtg0m5x1zAZPt-vlMRxbX/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzW2SGnxTTd72MxbUYsIDoi7ACT87aOjikjsrF5a1FMM3jZvZeTruxgp7QcXd8sxR1L/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
@@ -18,14 +18,34 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
     
     const toKSTDate = (dateStr: string) => {
       if (!dateStr) return '';
-      const d = new Date(dateStr);
-      // GAS에서 넘어온 날짜가 ISO 형태(UTC)일 경우 KST로 변환
-      // 만약 이미 YYYY-MM-DD 형태라면 Date 객체 생성 시 로컬 타임으로 해석될 수 있으므로 주의
-      if (dateStr.includes('T')) {
-        const kst = new Date(d.getTime() + (9 * 60 * 60 * 1000));
-        return kst.toISOString().split('T')[0];
+      
+      // ISO 형태(UTC)일 경우 KST(+9)로 변환하여 날짜 추출
+      if (typeof dateStr === 'string' && dateStr.includes('T')) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          const kst = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+          return kst.toISOString().split('T')[0];
+        }
       }
-      return dateStr.split(' ')[0]; // 이미 날짜만 있는 경우
+
+      // 'YYYY. M. D.' 또는 'YYYY-MM-DD' 등 다양한 형식에서 날짜 추출 시도
+      const dateMatch = String(dateStr).match(/(\d{4})[.\-/]\s*(\d{1,2})[.\-/]\s*(\d{1,2})/);
+      if (dateMatch) {
+        const year = dateMatch[1];
+        const month = dateMatch[2].padStart(2, '0');
+        const day = dateMatch[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime()) && d.getFullYear() > 1900) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      return String(dateStr).split(' ')[0];
     };
 
     const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
