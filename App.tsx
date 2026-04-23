@@ -159,7 +159,7 @@ const App: React.FC = () => {
     const isToPlanned = status === MealStatus.PLANNED;
     
     const newTime = isToActual ? getKSTTime() : (isToPlanned ? '23:59' : target.time);
-    const newDate = isToActual ? getTodayKST() : target.date;
+    const newDate = target.date; // 날짜는 기존 상태 그대로 유지
 
     const updatedMeal: MealRecord = { ...target, status, time: newTime, date: newDate, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));

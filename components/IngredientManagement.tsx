@@ -25,7 +25,9 @@ const IngredientManagement: React.FC<Props> = ({ ingredients, isAdmin, onToggleB
         const bBooked = !!b.is_bookmarked;
         if (aBooked && !bBooked) return -1;
         if (!aBooked && bBooked) return 1;
-        return a.name.localeCompare(b.name);
+        
+        // 즐겨찾기 상태가 같으면 최신 등록 순(배열 역순)으로 정렬
+        return ingredients.indexOf(b) - ingredients.indexOf(a);
       });
   }, [ingredients, searchTerm]);
 
