@@ -44,7 +44,7 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
           </button>
         </div>
 
-        <div className="p-8">
+        <div className="p-8 max-h-[70vh] overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center py-10 space-y-4">
               <div className="relative">

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
-import { getKSTTime, getTodayKST, getKSTTimeWithOffset } from '../utils';
+import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime } from '../utils';
 import { analyzeMealDescription } from '../services/geminiService';
 
 interface Props {
@@ -22,7 +22,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
-  const [time, setTime] = useState(editTarget?.time || getKSTTimeWithOffset(-60));
+  const [time, setTime] = useState(editTarget?.time ? formatTime(editTarget.time) : getKSTTimeWithOffset(-60));
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -186,9 +186,9 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
       // 예정(PLANNED)으로 저장 시 항상 23:59
       finalTime = '23:59';
     } else if (finalStatus === MealStatus.ACTUAL && editTarget?.status === MealStatus.PLANNED) {
-      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 및 날짜 적용
+      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 적용, 날짜는 유지
       finalTime = getKSTTime();
-      finalDate = getTodayKST();
+      finalDate = date; 
     }
     
     onSave({
