@@ -74,12 +74,6 @@ const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onU
             )}
           </div>
         </div>
-        <div className="flex flex-col items-end">
-          <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase mb-1 shadow-sm ${kcalProgress > 100 ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'}`}>
-            {kcalProgress > 100 ? 'Warning' : 'Good Progress'}
-          </div>
-          <p className="text-2xl font-black text-indigo-600">{Math.round(kcalProgress)}%</p>
-        </div>
       </div>
 
       <div className="relative w-full bg-gray-100 h-3 rounded-full overflow-hidden">
