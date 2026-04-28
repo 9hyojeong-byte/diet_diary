@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary } from './types';
+import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets } from './types';
 import Calendar from './components/Calendar';
 import DailySummaryView from './components/DailySummary';
 import MealSection from './components/MealSection';
@@ -60,6 +60,23 @@ const App: React.FC = () => {
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+
+  const [nutrientTargets, setNutrientTargets] = useState<NutrientTargets>(() => {
+    const saved = localStorage.getItem('nutrientTargets');
+    if (saved) return JSON.parse(saved);
+    return {
+      kcal: 1600,
+      carbs: 200,
+      protein: 120,
+      fat: 35
+    };
+  });
+
+  const onUpdateNutrientTargets = (newTargets: NutrientTargets) => {
+    setNutrientTargets(newTargets);
+    localStorage.setItem('nutrientTargets', JSON.stringify(newTargets));
+    showToast("목표 영양분이 수정되었습니다. ✨");
+  };
 
   // Toast handler
   const showToast = (msg: string) => {
@@ -391,7 +408,13 @@ const App: React.FC = () => {
         {currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
-            <DailySummaryView summary={summary} selectedDate={selectedDate} />
+            <DailySummaryView 
+              summary={summary} 
+              selectedDate={selectedDate} 
+              targets={nutrientTargets} 
+              onUpdateTargets={onUpdateNutrientTargets}
+              isAdmin={isAdmin}
+            />
 
             <div className="space-y-4">
               {[MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER].map(type => (
@@ -471,7 +494,7 @@ const App: React.FC = () => {
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
-      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={getTargetKcal(selectedDate)} targetProtein={getTargetProtein(selectedDate)} activity={currentActivity} diary={currentDiary} />}
+      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={nutrientTargets.kcal} targetProtein={nutrientTargets.protein} activity={currentActivity} diary={currentDiary} />}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); }} />}
     </div>

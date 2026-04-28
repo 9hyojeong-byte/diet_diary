@@ -83,3 +83,10 @@ export interface ActivityLog {
   created_at?: string;
   pending?: boolean;
 }
+
+export interface NutrientTargets {
+  kcal: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+}
