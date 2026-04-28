@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwYKVmC8DwVJDw9bKhqp0c319C7U3VP-qVfOFInPKCKHgLtYD9a44aModunz62v_-TX/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyugRP0Pgqz5WFWgGTl46EL9862VCcBs2Ze-knMGkvhWrC5QL6D_8e5MI0nLN9s9uiu/exec';
 
 export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
   try {
@@ -245,6 +245,21 @@ export async function updateActivityInGAS(activity: ActivityLog): Promise<boolea
 
 export async function deleteActivityFromGAS(uuid: string): Promise<boolean> {
   return callGAS('deleteActivity', { uuid });
+}
+
+export async function fetchDriveImages(folderId: string): Promise<string[]> {
+  try {
+    const response = await fetch(`${GAS_WEB_APP_URL}?action=getDriveImages&folderId=${folderId}`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+    if (!response.ok) throw new Error(`GAS HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    return data.images || [];
+  } catch (error) {
+    console.error("Failed to fetch drive images from GAS", error);
+    return [];
+  }
 }
 
 async function callGAS(action: string, data: any): Promise<boolean> {

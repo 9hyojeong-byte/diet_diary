@@ -20,6 +20,12 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
+  if (action === 'getDriveImages') {
+    const folderId = e.parameter.folderId;
+    return ContentService.createTextOutput(JSON.stringify({ images: getDriveImages(folderId) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
   return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid action' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -325,4 +331,22 @@ function deleteMemo(id) {
     }
   }
   return false;
+}
+
+function getDriveImages(folderId) {
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.getFiles();
+    const result = [];
+    while (files.hasNext()) {
+      const file = files.next();
+      const mime = file.getMimeType();
+      if (mime.indexOf('image/') !== -1) {
+        result.push(file.getId());
+      }
+    }
+    return result;
+  } catch (e) {
+    return [];
+  }
 }

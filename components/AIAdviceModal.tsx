@@ -21,8 +21,13 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
+      
       getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
         .then(res => setAdvice(res || "조언을 가져오는데 실패했어요. 다시 시도해볼까요?"))
+        .catch(error => {
+          console.error("Failed to load AI advice", error);
+          setAdvice("데이터를 불러오는데 실패했어요.");
+        })
         .finally(() => setLoading(false));
     }
   }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary]);
@@ -44,7 +49,7 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
           </button>
         </div>
 
-        <div className="p-8 max-h-[80vh] flex flex-col">
+        <div className="p-8 max-h-[85vh] flex flex-col">
           {loading ? (
             <div className="flex flex-col items-center py-10 space-y-4">
               <div className="relative">
@@ -54,43 +59,22 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
               <p className="text-gray-400 font-medium animate-pulse text-sm">식단을 분석하고 있어요...</p>
             </div>
           ) : (
-            <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
-                <div className="bg-indigo-50 p-6 rounded-2xl border-l-4 border-indigo-500 relative">
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 flex items-center justify-center min-h-[150px]">
+                <div className="bg-indigo-50 p-6 rounded-2xl border-l-4 border-indigo-500 relative w-full">
                   <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap font-medium">
                     "{advice}"
                   </p>
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center space-y-4">
-                {/* AI Nutritionist Illustration Section */}
-                <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-indigo-100 to-teal-100 border-4 border-white shadow-lg overflow-hidden group">
-                  <img 
-                    src="/ai_nutritionist_advice.png" 
-                    alt="AI Nutritionist"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback if image doesn't exist
-                      (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&top=shortHair&hairColor=black&facialHair=none&clothing=vneck&clothingColor=blue';
-                    }}
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-indigo-500/10 mix-blend-overlay"></div>
-                </div>
-                
-                <p className="text-xs text-gray-400 font-bold tracking-tight text-center">
-                  20대 다이어트 전문가 AI 닥터
-                </p>
-
-                <div className="w-full flex justify-center">
-                  <button 
-                    onClick={onClose}
-                    className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
-                  >
-                    확인했어요!
-                  </button>
-                </div>
+              <div className="mt-6 pt-4 border-t border-gray-100 w-full flex justify-center">
+                <button 
+                  onClick={onClose}
+                  className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
+                >
+                  확인했어요!
+                </button>
               </div>
             </div>
           )}
