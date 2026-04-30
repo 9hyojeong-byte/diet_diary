@@ -60,8 +60,8 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
             </div>
           ) : (
             <div className="flex flex-col h-full overflow-hidden">
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 flex items-center justify-center min-h-[150px]">
-                <div className="bg-indigo-50 p-6 rounded-2xl border-l-4 border-indigo-500 relative w-full">
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 min-h-[150px]">
+                <div className="bg-indigo-50 p-6 rounded-2xl border-l-4 border-indigo-500 relative w-full mb-4">
                   <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap font-medium">
                     "{advice}"
                   </p>
