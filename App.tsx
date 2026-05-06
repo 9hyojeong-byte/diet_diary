@@ -259,10 +259,17 @@ const App: React.FC = () => {
     }
 
     if (currentActivity) {
+      const summaryToUse = includePlanned ? summary.planned : summary.actual;
+      const tef = Math.round(summaryToUse.kcal * 0.1);
+      const activityTotal = Math.round(currentActivity.total_calories);
+      const finalTDEE = activityTotal + tef;
+
       text += `[활동량]\n`;
-      text += `- 걸음 수: ${currentActivity.steps.toLocaleString()}보\n`;
-      text += `- 활동 칼로리: ${currentActivity.active_calories}kcal\n`;
-      text += `- 총 소모 칼로리: ${currentActivity.total_calories}kcal\n\n`;
+      text += `- 걸음 수 : ${currentActivity.steps.toLocaleString()}보\n`;
+      text += `- 활동 칼로리 : ${currentActivity.active_calories}kcal\n`;
+      text += `- TEF : ${tef}kcal\n`;
+      text += `- 총 소모 칼로리 : ${activityTotal}kcal\n`;
+      text += `- 최종 총 소모 칼로리 (TDEE) : ${finalTDEE}kcal\n\n`;
     }
     
     text = text.trim();

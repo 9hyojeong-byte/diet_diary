@@ -33,8 +33,13 @@ export async function getAIRecommendation(
       ? actualMeals.map(m => `- ${m.type} (${m.time}): ${m.ingredient_name || '알 수 없는 식재료'} ${m.amount}g (${Math.round(m.kcal)}kcal)`).join('\n')
       : '아직 섭취한 식단이 없습니다.';
 
+    // Calculate TEF and TDEE
+    const tef = Math.round(summary.actual.kcal * 0.1);
+    const totalActivityExpended = activity ? Math.round(activity.total_calories) : 0;
+    const finalTDEE = totalActivityExpended + tef;
+
     const activityStr = activity 
-      ? `- 걸음수: ${activity.steps.toLocaleString()}보\n- 활동 칼로리: ${activity.active_calories}kcal\n- 총 소모 칼로리: ${activity.total_calories}kcal`
+      ? `- 걸음 수: ${activity.steps.toLocaleString()}보\n- 활동 칼로리: ${activity.active_calories}kcal\n- TEF (식이발열효과): ${tef}kcal\n- 총 소모 칼로리: ${totalActivityExpended}kcal\n- 최종 총 소모 칼로리 (TDEE): ${finalTDEE}kcal`
       : '오늘의 활동 기록이 아직 없습니다.';
 
     const diaryStr = diary && diary.content.trim()
@@ -58,13 +63,13 @@ export async function getAIRecommendation(
 [오늘 먹은 식단]
 ${mealListStr}
 
-[오늘의 활동 현황]
+[오늘의 활동 및 소모 현황]
 ${activityStr}
 
 [오늘의 건강 일기]
 ${diaryStr}
 
-위 내용을 바탕으로 오늘 식단과 운동이 어땠는지, 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
+위 내용을 바탕으로 오늘 식단과 운동이 어땠는지(특히 최종 총 소모 칼로리 TDEE를 고려해서!), 남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말을 3~4문장 이내로 작성해줘.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
