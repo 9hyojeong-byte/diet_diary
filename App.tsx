@@ -374,19 +374,28 @@ const App: React.FC = () => {
   };
 
   const onSaveAIRecommendation = useCallback(async (advice: string) => {
+    // 조언이 비어있거나 실패 메시지인 경우 저장하지 않음
+    if (!advice || advice.includes("실패") || advice.includes("데이터를 불러오는데")) return;
+
     const newRecommendation: AIRecommendation = {
       date: selectedDate,
       advice,
-      created_at: getKSTFullTime()
+      created_at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
     };
     
     setRecommendations(prev => {
       const exists = prev.some(r => r.date === selectedDate);
-      return exists ? prev.map(r => r.date === selectedDate ? newRecommendation : r) : [...prev, newRecommendation];
+      if (exists) {
+        return prev.map(r => r.date === selectedDate ? newRecommendation : r);
+      }
+      return [...prev, newRecommendation];
     });
 
     try {
-      await saveAIRecommendationToGAS(newRecommendation);
+      const success = await saveAIRecommendationToGAS(newRecommendation);
+      if (success) {
+        console.log("AI Recommendation saved to DB");
+      }
     } catch (error) {
       console.error("Failed to save AI Recommendation", error);
     }

@@ -1,6 +1,6 @@
 /**
- * 쿠쿠 식단 기록 앱 - Google Apps Script (v2.0)
- * 활동량 데이터 uuid 기반 수정/삭제 지원 버전
+ * 쿠쿠 식단 기록 앱 - Google Apps Script (v2.1)
+ * AI 영양 추천(recommendations) 저장 및 조회 기능 추가 버전
  */
 
 const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
@@ -52,6 +52,7 @@ function doPost(e) {
     case 'saveActivity': result = saveActivity(data); break;
     case 'updateActivity': result = updateActivity(data); break;
     case 'deleteActivity': result = deleteActivity(data.uuid); break;
+    case 'saveRecommendation': result = saveRecommendation(data); break;
   }
   
   return ContentService.createTextOutput(JSON.stringify({ success: result }))
@@ -65,7 +66,8 @@ function getAllData() {
     meals: getSheetData('meals'),
     ingredients: getSheetData('ingredients'),
     diaries: getSheetData('diaries'),
-    activities: getSheetData('activity_logs')
+    activities: getSheetData('activity_logs'),
+    recommendations: getSheetData('AI_Recommendations')
   };
 }
 
@@ -74,6 +76,8 @@ function getSheetData(sheetName) {
   if (!sheet) return [];
   
   const range = sheet.getDataRange();
+  if (range.getNumRows() <= 1) return []; // 헤더만 있는 경우 빈 배열 반환
+  
   const displayValues = range.getDisplayValues();
   const headers = displayValues[0];
   
@@ -103,6 +107,33 @@ function getMemos(offset, limit) {
   }).reverse(); // 최신순
   
   return processedRows.slice(offset, offset + limit);
+}
+
+// --- AI Recommendations ---
+
+function saveRecommendation(data) {
+  const sheet = getOrCreateSheet('AI_Recommendations', ['date', 'advice', 'created_at']);
+  const rows = sheet.getDataRange().getValues();
+  const dateIdx = rows[0].indexOf('date');
+  
+  // 날짜별로 하나만 저장 (있으면 업데이트, 없으면 추가)
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][dateIdx] === data.date) {
+      sheet.getRange(i + 1, 1, 1, 3).setValues([[
+        data.date,
+        data.advice,
+        data.created_at || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+      ]]);
+      return true;
+    }
+  }
+  
+  sheet.appendRow([
+    data.date,
+    data.advice,
+    data.created_at || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+  ]);
+  return true;
 }
 
 // --- Activity Logs (UUID Based) ---
@@ -174,23 +205,20 @@ function getOrCreateSheet(name, headers) {
   return sheet;
 }
 
-// --- Other Save/Update/Delete functions (생략 가능하나 구조 유지를 위해 간단히 작성) ---
-// 실제 사용시 기존에 잘 작동하던 코드를 유지하면서 activity_logs 부분만 위 코드로 교체하시면 됩니다.
+// --- Meals ---
 
 function saveMeal(data) {
-  // 1. 헤더 순서를 [name, uuid] 순으로 변경
   const headers = ['uuid', 'type', 'status', 'date', 'time', 'ingredient_name', 'ingredient_uuid', 'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber'];
   const sheet = getOrCreateSheet('meals', headers);
   
-  // 2. 입력 데이터도 헤더 순서와 똑같이 맞춤
   sheet.appendRow([
     data.uuid, 
     data.type, 
     data.status, 
     data.date, 
     data.time, 
-    data.ingredient_name, // name 먼저
-    data.ingredient_uuid, // uuid 나중
+    data.ingredient_name,
+    data.ingredient_uuid,
     data.amount, 
     data.kcal, 
     data.carbs, 
@@ -232,6 +260,8 @@ function deleteMeal(uuid) {
   return false;
 }
 
+// --- Ingredients ---
+
 function saveIngredient(data) {
   const sheet = getOrCreateSheet('ingredients', ['uuid', 'name', 'base_amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber', 'is_bookmarked']);
   sheet.appendRow([data.uuid, data.name, data.base_amount, data.kcal, data.carbs, data.protein, data.fat, data.sugar, data.fiber, data.is_bookmarked]);
@@ -242,10 +272,10 @@ function updateIngredient(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ingredients');
   if (!sheet) return false;
   const rows = sheet.getDataRange().getValues();
-  const uuidIdx = rows[0].indexOf('uuid');
+  const headers = rows[0];
+  const uuidIdx = headers.indexOf('uuid');
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][uuidIdx] === data.uuid) {
-      const headers = rows[0];
       const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
       sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
       return true;
@@ -284,6 +314,8 @@ function updateBookmark(uuid, isBookmarked) {
   return false;
 }
 
+// --- Diaries ---
+
 function saveDiary(data) {
   const sheet = getOrCreateSheet('diaries', ['uuid', 'date', 'content', 'updated_at']);
   const rows = sheet.getDataRange().getValues();
@@ -297,6 +329,8 @@ function saveDiary(data) {
   sheet.appendRow([data.uuid, data.date, data.content, data.updated_at]);
   return true;
 }
+
+// --- Memos ---
 
 function saveMemo(data) {
   const sheet = getOrCreateSheet('memos', ['id', 'content', 'createdat', 'updatedat']);
@@ -336,6 +370,7 @@ function deleteMemo(id) {
 function getDriveImages(folderId) {
   try {
     const folder = DriveApp.getFolderById(folderId);
+    if (!folder) return [];
     const files = folder.getFiles();
     const result = [];
     while (files.hasNext()) {
