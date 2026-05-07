@@ -377,6 +377,13 @@ const App: React.FC = () => {
     // 조언이 비어있거나 실패 메시지인 경우 저장하지 않음
     if (!advice || advice.includes("실패") || advice.includes("데이터를 불러오는데")) return;
 
+    // 이미 동일한 날짜에 동일한 내용의 추천이 있다면 저장하지 않음 (로컬 상태 기준)
+    const isAlreadySaved = recommendations.some(r => r.date === selectedDate && r.advice === advice);
+    if (isAlreadySaved) {
+      console.log("Recommendation already exists for this date and content.");
+      return;
+    }
+
     const newRecommendation: AIRecommendation = {
       date: selectedDate,
       advice,

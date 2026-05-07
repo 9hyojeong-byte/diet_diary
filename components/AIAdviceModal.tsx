@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getAIRecommendation } from '../services/geminiService';
 import { DailySummary, MealRecord, ActivityLog, HealthDiary, AIRecommendation } from '../types';
 
@@ -19,16 +19,25 @@ interface Props {
 const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation }) => {
   const [loading, setLoading] = useState(true);
   const [advice, setAdvice] = useState('');
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
       if (savedRecommendation) {
         setAdvice(savedRecommendation.advice);
         setLoading(false);
+        hasFetched.current = true;
+        return;
+      }
+
+      // Already fetching or already fetched in this session
+      if (hasFetched.current) {
+        setLoading(false);
         return;
       }
 
       setLoading(true);
+      hasFetched.current = true;
       
       getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
         .then(res => {
@@ -37,13 +46,21 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
             onSaveRecommendation(res);
           } else {
             setAdvice("조언을 가져오는데 실패했어요. 다시 시도해볼까요?");
+            hasFetched.current = false; // Allow retry on failure
           }
         })
         .catch(error => {
           console.error("Failed to load AI advice", error);
           setAdvice("데이터를 불러오는데 실패했어요.");
+          hasFetched.current = false; // Allow retry on error
         })
         .finally(() => setLoading(false));
+    } else {
+      // Reset when modal closes so it can fetch again if needed next time (unless it's already saved)
+      if (!savedRecommendation) {
+        hasFetched.current = false;
+        setAdvice('');
+      }
     }
   }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation]);
 
@@ -77,9 +94,12 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
             <div className="flex flex-col h-full overflow-hidden">
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 min-h-[150px]">
                 <div className="bg-indigo-50 p-6 rounded-2xl border-l-4 border-indigo-500 relative w-full mb-4">
-                  <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap font-medium">
-                    "{advice}"
-                  </p>
+                    {advice.split('\n').map((line, i) => {
+                      if (line.startsWith('[') && line.includes(']')) {
+                        return <div key={i} className="font-black text-indigo-700 mt-4 first:mt-0 mb-2 border-b border-indigo-100 pb-1">{line}</div>;
+                      }
+                      return <div key={i} className="mb-1 last:mb-0 leading-relaxed font-medium">{line}</div>;
+                    })}
                 </div>
               </div>
               
