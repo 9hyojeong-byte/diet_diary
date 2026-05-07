@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getAIRecommendation } from '../services/geminiService';
-import { DailySummary, MealRecord, ActivityLog, HealthDiary } from '../types';
+import { DailySummary, MealRecord, ActivityLog, HealthDiary, AIRecommendation } from '../types';
 
 interface Props {
   isOpen: boolean;
@@ -12,25 +12,40 @@ interface Props {
   targetProtein: number;
   activity?: ActivityLog;
   diary?: HealthDiary;
+  savedRecommendation?: AIRecommendation;
+  onSaveRecommendation: (advice: string) => void;
 }
 
-const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targetKcal, targetProtein, activity, diary }) => {
+const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation }) => {
   const [loading, setLoading] = useState(true);
   const [advice, setAdvice] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      if (savedRecommendation) {
+        setAdvice(savedRecommendation.advice);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       
       getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
-        .then(res => setAdvice(res || "조언을 가져오는데 실패했어요. 다시 시도해볼까요?"))
+        .then(res => {
+          if (res) {
+            setAdvice(res);
+            onSaveRecommendation(res);
+          } else {
+            setAdvice("조언을 가져오는데 실패했어요. 다시 시도해볼까요?");
+          }
+        })
         .catch(error => {
           console.error("Failed to load AI advice", error);
           setAdvice("데이터를 불러오는데 실패했어요.");
         })
         .finally(() => setLoading(false));
     }
-  }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary]);
+  }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation]);
 
   if (!isOpen) return null;
 

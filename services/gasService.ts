@@ -1,9 +1,15 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyugRP0Pgqz5WFWgGTl46EL9862VCcBs2Ze-knMGkvhWrC5QL6D_8e5MI0nLN9s9uiu/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxJz8Ppwv5EqY1waaixiG9vuiirT5WhEM44nkIIeWelke5nxsDD5b21zV7Co6QMUvNY/exec';
 
-export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredients: Ingredient[], diaries: HealthDiary[], activities: ActivityLog[] }> {
+export async function fetchInitialData(): Promise<{ 
+  meals: MealRecord[], 
+  ingredients: Ingredient[], 
+  diaries: HealthDiary[], 
+  activities: ActivityLog[],
+  recommendations: AIRecommendation[]
+}> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
       method: 'GET',
@@ -118,11 +124,28 @@ export async function fetchInitialData(): Promise<{ meals: MealRecord[], ingredi
       total_calories: Number(a.total_calories) || 0
     }));
 
-    return { meals: sanitizedMeals, ingredients: sanitizedIngredients, diaries: sanitizedDiaries, activities: sanitizedActivities };
+    const sanitizedRecommendations = (data.recommendations || []).map((r: any) => ({
+      ...r,
+      date: toKSTDate(r.date)
+    }));
+
+    return { 
+      meals: sanitizedMeals, 
+      ingredients: sanitizedIngredients, 
+      diaries: sanitizedDiaries, 
+      activities: sanitizedActivities,
+      recommendations: sanitizedRecommendations
+    };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [], activities: [] };
+    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [] };
   }
+}
+
+import { AIRecommendation } from '../types';
+
+export async function saveAIRecommendationToGAS(recommendation: AIRecommendation): Promise<boolean> {
+  return callGAS('saveRecommendation', recommendation);
 }
 
 export async function fetchMemos(offset: number = 0, limit: number = 10): Promise<Memo[]> {

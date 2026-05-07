@@ -84,6 +84,12 @@ export interface ActivityLog {
   pending?: boolean;
 }
 
+export interface AIRecommendation {
+  date: string;
+  advice: string;
+  created_at: string;
+}
+
 export interface NutrientTargets {
   kcal: number;
   carbs: number;

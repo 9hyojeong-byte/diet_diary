@@ -27,10 +27,11 @@ import {
   saveDiaryToGAS,
   saveActivityToGAS,
   updateActivityInGAS,
-  deleteActivityFromGAS
+  deleteActivityFromGAS,
+  saveAIRecommendationToGAS
 } from './services/gasService';
 
-import { ActivityLog } from './types';
+import { ActivityLog, AIRecommendation } from './types';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [diaries, setDiaries] = useState<HealthDiary[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
@@ -109,6 +111,7 @@ const App: React.FC = () => {
         setIngredients(data.ingredients || []);
         setDiaries(data.diaries || []);
         setActivities(data.activities || []);
+        setRecommendations(data.recommendations || []);
       } catch (error) {
         console.error("Failed to load data", error);
         showToast("데이터를 불러오는 중 오류가 발생했습니다.");
@@ -128,6 +131,7 @@ const App: React.FC = () => {
   const filteredMeals = useMemo(() => meals.filter(m => String(m.date).startsWith(selectedDate) && m.status !== MealStatus.CANCELED), [meals, selectedDate]);
   const currentDiary = useMemo(() => diaries.find(d => d.date === selectedDate), [diaries, selectedDate]);
   const currentActivity = useMemo(() => activities.find(a => a.date === selectedDate), [activities, selectedDate]);
+  const currentRecommendation = useMemo(() => recommendations.find(r => r.date === selectedDate), [recommendations, selectedDate]);
 
   const summary = useMemo(() => {
     const initial = { kcal: 0, carbs: 0, protein: 0, fat: 0 };
@@ -369,6 +373,25 @@ const App: React.FC = () => {
     } 
   };
 
+  const onSaveAIRecommendation = useCallback(async (advice: string) => {
+    const newRecommendation: AIRecommendation = {
+      date: selectedDate,
+      advice,
+      created_at: getKSTFullTime()
+    };
+    
+    setRecommendations(prev => {
+      const exists = prev.some(r => r.date === selectedDate);
+      return exists ? prev.map(r => r.date === selectedDate ? newRecommendation : r) : [...prev, newRecommendation];
+    });
+
+    try {
+      await saveAIRecommendationToGAS(newRecommendation);
+    } catch (error) {
+      console.error("Failed to save AI Recommendation", error);
+    }
+  }, [selectedDate]);
+
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
       {isLoading && (
@@ -501,7 +524,20 @@ const App: React.FC = () => {
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
-      {adviceModalOpen && <AIAdviceModal isOpen={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} summary={summary} meals={filteredMeals} targetKcal={nutrientTargets.kcal} targetProtein={nutrientTargets.protein} activity={currentActivity} diary={currentDiary} />}
+      {adviceModalOpen && (
+        <AIAdviceModal 
+          isOpen={adviceModalOpen} 
+          onClose={() => setAdviceModalOpen(false)} 
+          summary={summary} 
+          meals={filteredMeals} 
+          targetKcal={nutrientTargets.kcal} 
+          targetProtein={nutrientTargets.protein} 
+          activity={currentActivity} 
+          diary={currentDiary} 
+          savedRecommendation={currentRecommendation}
+          onSaveRecommendation={onSaveAIRecommendation}
+        />
+      )}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); }} />}
     </div>
