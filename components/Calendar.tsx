@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { MealRecord, HealthDiary, ActivityLog } from '../types';
 import { getTodayKST, formatDateToYYYYMMDD } from '../utils';
 
@@ -80,10 +80,28 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
     setViewMonth(next);
   };
 
+  const [todayClicks, setTodayClicks] = useState(0);
+  const timeoutRef = useRef<number | null>(null);
+
   const handleGoToday = () => {
     const today = getTodayKST();
     onSelectDate(today);
     setViewMonth(parseLocalDate(today));
+
+    // Secret Admin Logic: 3 clicks = Open Link
+    setTodayClicks(prev => {
+      const next = prev + 1;
+      if (next >= 3) {
+        window.open('https://docs.google.com/spreadsheets/d/1g1qaI1wv524-pOx0GtHo2dbSYIxh9N4iTCGl-xJyKT4/edit?gid=1351184868#gid=1351184868', '_blank');
+        return 0;
+      }
+      return next;
+    });
+
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = window.setTimeout(() => setTodayClicks(0), 3000);
   };
 
   return (
