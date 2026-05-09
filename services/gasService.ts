@@ -1,14 +1,15 @@
 
-import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog } from '../types';
+import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzGcXM3GniSqv8X881IWHdXa8EpBnlxbjIl5CXGLOq0rD6xk1eGSY0-E8tFlg5jfmrL/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyWXspUaUqt9E9LbssV1PsGPfnfQFzXCbgp6xvS72WwR8tKudKIQP-u560DZJ5URtpf/exec';
 
 export async function fetchInitialData(): Promise<{ 
   meals: MealRecord[], 
   ingredients: Ingredient[], 
   diaries: HealthDiary[], 
   activities: ActivityLog[],
-  recommendations: AIRecommendation[]
+  recommendations: AIRecommendation[],
+  nutrientTargets: NutrientTargetRecord[]
 }> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
@@ -129,23 +130,34 @@ export async function fetchInitialData(): Promise<{
       date: toKSTDate(r.date)
     }));
 
+    const sanitizedNutrientTargets = (data.nutrient_targets || []).map((nt: any) => ({
+      date: nt.date, // Already saved as YYYY-MM-DD usually, but toKSTDate if needed
+      kcal: Number(nt.kcal) || 0,
+      carbs: Number(nt.carbs) || 0,
+      protein: Number(nt.protein) || 0,
+      fat: Number(nt.fat) || 0
+    }));
+
     return { 
       meals: sanitizedMeals, 
       ingredients: sanitizedIngredients, 
       diaries: sanitizedDiaries, 
       activities: sanitizedActivities,
-      recommendations: sanitizedRecommendations
+      recommendations: sanitizedRecommendations,
+      nutrientTargets: sanitizedNutrientTargets
     };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [] };
+    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [] };
   }
 }
 
-import { AIRecommendation } from '../types';
-
 export async function saveAIRecommendationToGAS(recommendation: AIRecommendation): Promise<boolean> {
   return callGAS('saveRecommendation', recommendation);
+}
+
+export async function saveNutrientTargetsToGAS(targets: NutrientTargetRecord): Promise<boolean> {
+  return callGAS('saveNutrientTargets', targets);
 }
 
 export async function fetchMemos(offset: number = 0, limit: number = 10): Promise<Memo[]> {

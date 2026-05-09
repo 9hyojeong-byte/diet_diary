@@ -21,6 +21,27 @@ const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onU
   };
 
   const isToday = selectedDate === getKSTToday();
+
+  const handleCalculateMacros = () => {
+    const kcal = editValues.kcal;
+    const protein = 120; // Fixed 120g
+    const proteinKcal = protein * 4;
+    const remainingKcal = Math.max(0, kcal - proteinKcal);
+    
+    // Split remaining kcal 0.7 for Carbs, 0.3 for Fat
+    const carbsKcal = remainingKcal * 0.7;
+    const fatKcal = remainingKcal * 0.3;
+    
+    const carbs = Math.round(carbsKcal / 4);
+    const fat = Math.round(fatKcal / 9);
+    
+    setEditValues({
+      ...editValues,
+      protein,
+      carbs,
+      fat
+    });
+  };
   
   const titleDate = isToday 
     ? "오늘" 
@@ -68,6 +89,12 @@ const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onU
                   className="w-16 px-1 py-0.5 border-b-2 border-indigo-500 focus:outline-none font-bold text-indigo-600 bg-indigo-50/50 rounded-t-md"
                 />
                 <span className="text-xs font-bold text-gray-400">kcal</span>
+                <button 
+                  onClick={handleCalculateMacros}
+                  className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-lg hover:bg-indigo-200 transition-all active:scale-95 whitespace-nowrap"
+                >
+                  탄단지 g 계산
+                </button>
               </div>
             ) : (
               <span className="text-lg font-bold text-gray-300">/ {targets.kcal} kcal</span>

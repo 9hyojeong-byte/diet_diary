@@ -28,10 +28,11 @@ import {
   saveActivityToGAS,
   updateActivityInGAS,
   deleteActivityFromGAS,
-  saveAIRecommendationToGAS
+  saveAIRecommendationToGAS,
+  saveNutrientTargetsToGAS
 } from './services/gasService';
 
-import { ActivityLog, AIRecommendation } from './types';
+import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
@@ -63,21 +64,46 @@ const App: React.FC = () => {
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
-  const [nutrientTargets, setNutrientTargets] = useState<NutrientTargets>(() => {
-    const saved = localStorage.getItem('nutrientTargets');
+  const [nutrientTargetsMap, setNutrientTargetsMap] = useState<Record<string, NutrientTargets>>(() => {
+    const saved = localStorage.getItem('nutrientTargetsMap');
     if (saved) return JSON.parse(saved);
+    const legacy = localStorage.getItem('nutrientTargets');
+    if (legacy) return { [selectedDate]: JSON.parse(legacy) };
+    return {};
+  });
+
+  const getTargetForDate = useCallback((date: string): NutrientTargets => {
+    if (nutrientTargetsMap[date]) return nutrientTargetsMap[date];
+    
+    // Find the closest previous date with targets
+    const sortedDates = Object.keys(nutrientTargetsMap).sort((a, b) => b.localeCompare(a));
+    const previousDate = sortedDates.find(d => d < date);
+    
+    if (previousDate) return nutrientTargetsMap[previousDate];
+
+    // Default fallback
     return {
       kcal: 1600,
       carbs: 200,
       protein: 120,
       fat: 35
     };
-  });
+  }, [nutrientTargetsMap]);
 
-  const onUpdateNutrientTargets = (newTargets: NutrientTargets) => {
-    setNutrientTargets(newTargets);
-    localStorage.setItem('nutrientTargets', JSON.stringify(newTargets));
-    showToast("목표 영양분이 수정되었습니다. ✨");
+  const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
+
+  const onUpdateNutrientTargets = async (newTargets: NutrientTargets) => {
+    const newMap = { ...nutrientTargetsMap, [selectedDate]: newTargets };
+    setNutrientTargetsMap(newMap);
+    localStorage.setItem('nutrientTargetsMap', JSON.stringify(newMap));
+    
+    try {
+      await saveNutrientTargetsToGAS({ ...newTargets, date: selectedDate });
+      showToast(`${selectedDate} 목표 영양분이 수정되었습니다. ✨`);
+    } catch (error) {
+      console.error("Failed to save nutrient targets to GAS", error);
+      showToast("로컬에 저장되었습니다. 서버 저장 실패 😅");
+    }
   };
 
   // Toast handler
@@ -112,6 +138,12 @@ const App: React.FC = () => {
         setDiaries(data.diaries || []);
         setActivities(data.activities || []);
         setRecommendations(data.recommendations || []);
+
+        const ntMap: Record<string, NutrientTargets> = {};
+        (data.nutrientTargets || []).forEach(nt => {
+          ntMap[nt.date] = { kcal: nt.kcal, carbs: nt.carbs, protein: nt.protein, fat: nt.fat };
+        });
+        setNutrientTargetsMap(prev => ({ ...prev, ...ntMap }));
       } catch (error) {
         console.error("Failed to load data", error);
         showToast("데이터를 불러오는 중 오류가 발생했습니다.");

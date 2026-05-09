@@ -53,6 +53,7 @@ function doPost(e) {
     case 'updateActivity': result = updateActivity(data); break;
     case 'deleteActivity': result = deleteActivity(data.uuid); break;
     case 'saveRecommendation': result = saveRecommendation(data); break;
+    case 'saveNutrientTargets': result = saveNutrientTargets(data); break;
   }
   
   return ContentService.createTextOutput(JSON.stringify({ success: result }))
@@ -67,7 +68,8 @@ function getAllData() {
     ingredients: getSheetData('ingredients'),
     diaries: getSheetData('diaries'),
     activities: getSheetData('activity_logs'),
-    recommendations: getSheetData('AI_Recommendations')
+    recommendations: getSheetData('AI_Recommendations'),
+    nutrient_targets: getSheetData('nutrient_targets')
   };
 }
 
@@ -132,6 +134,38 @@ function saveRecommendation(data) {
     data.date,
     data.advice,
     data.created_at || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+  ]);
+  return true;
+}
+
+// --- Nutrient Targets ---
+
+function saveNutrientTargets(data) {
+  const sheet = getOrCreateSheet('nutrient_targets', ['date', 'kcal', 'carbs', 'protein', 'fat', 'updated_at']);
+  const rows = sheet.getDataRange().getValues();
+  const dateIdx = rows[0].indexOf('date');
+  
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][dateIdx] === data.date) {
+      sheet.getRange(i + 1, 1, 1, 6).setValues([[
+        data.date,
+        data.kcal,
+        data.carbs,
+        data.protein,
+        data.fat,
+        new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+      ]]);
+      return true;
+    }
+  }
+  
+  sheet.appendRow([
+    data.date,
+    data.kcal,
+    data.carbs,
+    data.protein,
+    data.fat,
+    new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
   ]);
   return true;
 }

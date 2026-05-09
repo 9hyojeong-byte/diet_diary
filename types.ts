@@ -96,3 +96,7 @@ export interface NutrientTargets {
   protein: number;
   fat: number;
 }
+
+export interface NutrientTargetRecord extends NutrientTargets {
+  date: string;
+}
