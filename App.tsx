@@ -63,6 +63,25 @@ const App: React.FC = () => {
   const [prefilledType, setPrefilledType] = useState<MealType | null>(null);
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [adminClicks, setAdminClicks] = useState(0);
+
+  const handleAdminClick = () => {
+    setAdminClicks(prev => {
+      const next = prev + 1;
+      if (next >= 3) {
+        window.open('https://docs.google.com/spreadsheets/d/1g1qaI1wv524-pOx0GtHo2dbSYIxh9N4iTCGl-xJyKT4/edit?gid=1351184868#gid=1351184868', '_blank');
+        return 0;
+      }
+      return next;
+    });
+
+    // Reset counter if no more clicks for 3 seconds
+    const timeoutId = window.setTimeout(() => {
+      setAdminClicks(0);
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  };
 
   const [nutrientTargetsMap, setNutrientTargetsMap] = useState<Record<string, NutrientTargets>>(() => {
     const saved = localStorage.getItem('nutrientTargetsMap');
@@ -442,6 +461,13 @@ const App: React.FC = () => {
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
+      <button 
+        onClick={handleAdminClick}
+        className="absolute top-0 left-4 z-[100] text-[10px] text-gray-300 font-bold opacity-30 hover:opacity-100 transition-opacity"
+      >
+        admin
+      </button>
+
       {isLoading && (
         <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
           <div className="relative mb-8">
