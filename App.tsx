@@ -335,7 +335,10 @@ const App: React.FC = () => {
     });
     try {
       const success = await saveDiaryToGAS(newDiary);
-      if (success) setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
+      if (success) {
+        setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
+        showToast("건강 일기가 저장되었습니다! ✨");
+      }
       else throw new Error("Diary storage failed");
     } catch (error) { 
       setDiaries(prevDiaries);
