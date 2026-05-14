@@ -353,10 +353,13 @@ function updateBookmark(uuid, isBookmarked) {
 function saveDiary(data) {
   const sheet = getOrCreateSheet('diaries', ['uuid', 'date', 'content', 'updated_at']);
   const rows = sheet.getDataRange().getValues();
-  const dateIdx = rows[0].indexOf('date');
+  const headers = rows[0];
+  const uuidIdx = headers.indexOf('uuid');
+  
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][dateIdx] === data.date) {
-      sheet.getRange(i + 1, 1, 1, 4).setValues([[data.uuid, data.date, data.content, data.updated_at]]);
+    if (String(rows[i][uuidIdx]) === String(data.uuid)) {
+      const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
+      sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
       return true;
     }
   }
