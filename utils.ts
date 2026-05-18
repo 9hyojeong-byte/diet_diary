@@ -23,13 +23,23 @@ export const getKSTTime = (): string => {
 };
 
 export const getKSTTimeWithOffset = (offsetMinutes: number): string => {
+  const { time } = getKSTDateTimeWithOffset(offsetMinutes);
+  return time;
+};
+
+export const getKSTDateTimeWithOffset = (offsetMinutes: number): { date: string, time: string } => {
   const now = new Date();
-  const kstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-  const offsetTime = new Date(kstNow.getTime() + (offsetMinutes * 60 * 1000));
+  // Using a more robust way to get KST Date object
+  const kstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+  const offsetTime = new Date(kstDate.getTime() + (offsetMinutes * 60 * 1000));
   
   const hours = String(offsetTime.getHours()).padStart(2, '0');
   const minutes = String(offsetTime.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+  
+  return {
+    date: formatDateToYYYYMMDD(offsetTime),
+    time: `${hours}:${minutes}`
+  };
 };
 
 export const getKSTFullTime = (): string => {

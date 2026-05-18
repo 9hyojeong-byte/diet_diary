@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
-import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime } from '../utils';
+import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime, getKSTDateTimeWithOffset } from '../utils';
 import { analyzeMealDescription } from '../services/geminiService';
 
 interface Props {
@@ -151,7 +151,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     };
   }, [selectedIngredient, amount, isAddingNew, newBase, newKcal, newCarbs, newProtein, newFat]);
 
-  const handleSave = (finalStatus: MealStatus) => {
+  const handleSave = (finalStatus: MealStatus, overrideTime?: string, overrideDate?: string) => {
     if (!isAdmin) {
       alert(trialMessage);
       return;
@@ -178,17 +178,13 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     
     if (!preview) return;
     
-    // 시간/날짜 로직 수정
-    let finalTime = time;
-    let finalDate = date;
+    // 시간/날짜 로직 적용 (사용자 요청에 따른 세분화)
+    let finalTime = overrideTime || time;
+    let finalDate = overrideDate || date;
     
     if (finalStatus === MealStatus.PLANNED) {
-      // 예정(PLANNED)으로 저장 시 항상 23:59
+      // "예정" 클릭 시 항상 23:59로 고정 (또는 오리지널 로직 유지)
       finalTime = '23:59';
-    } else if (finalStatus === MealStatus.ACTUAL && editTarget?.status === MealStatus.PLANNED) {
-      // 기존 PLANNED 식단을 ACTUAL로 전환하여 저장 시 현재 한국 시각 적용, 날짜는 유지
-      finalTime = getKSTTime();
-      finalDate = date; 
     }
     
     onSave({
@@ -302,7 +298,6 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
             <div className="space-y-6 animate-in fade-in">
               <div className="relative">
                 <input 
-                  autoFocus 
                   type="text" 
                   placeholder="식재료 검색..." 
                   value={searchTerm} 
@@ -456,7 +451,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                     <span className="text-sm font-black text-indigo-600">{Math.round(preview?.kcal || 0)} kcal</span>
                   </div>
                 </div>
-                <input autoFocus type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 bg-white rounded-3xl ring-2 ring-indigo-500 text-3xl font-black text-center outline-none" />
+                <input type="number" step="0.1" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-4 bg-white rounded-3xl ring-2 ring-indigo-500 text-3xl font-black text-center outline-none" />
               </div>
             </div>
           )}
@@ -478,14 +473,27 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               onClick={() => handleSave(MealStatus.PLANNED)} 
               className="flex-1 py-4 bg-white text-gray-500 border border-gray-200 font-black rounded-2xl active:scale-95 disabled:opacity-30 transition-all text-sm"
             >
-              예정으로 저장
+              예정
             </button>
             <button 
               disabled={!preview || isDeleting} 
-              onClick={() => handleSave(MealStatus.ACTUAL)} 
-              className="flex-[1.5] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
+              onClick={() => {
+                const { date: d, time: t } = getKSTDateTimeWithOffset(-60);
+                handleSave(MealStatus.ACTUAL, t, d);
+              }} 
+              className="flex-1 py-4 bg-indigo-100 text-indigo-600 font-black rounded-2xl active:scale-95 disabled:opacity-30 transition-all text-sm"
             >
-              {editTarget ? '수정 완료' : '식단 저장'}
+              1시간 전
+            </button>
+            <button 
+              disabled={!preview || isDeleting} 
+              onClick={() => {
+                const { date: d, time: t } = getKSTDateTimeWithOffset(0);
+                handleSave(MealStatus.ACTUAL, t, d);
+              }} 
+              className="flex-[1.2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
+            >
+              바로 저장
             </button>
           </div>
         </div>
