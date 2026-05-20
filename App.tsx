@@ -20,6 +20,7 @@ import {
   fetchInitialData, 
   saveMealToGAS, 
   updateMealInGAS, 
+  deleteMealFromGAS,
   saveIngredientToGAS, 
   updateIngredientInGAS,
   deleteIngredientFromGAS,
@@ -231,11 +232,11 @@ const App: React.FC = () => {
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target) return false;
     const prevMeals = [...meals];
-    setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, status: MealStatus.CANCELED, pending: true } : m));
+    setMeals(p => p.filter(m => String(m.uuid) !== String(uuid)));
     try {
-      const success = await updateMealInGAS({ ...target, status: MealStatus.CANCELED });
+      const success = await deleteMealFromGAS(uuid);
       if (success) {
-        setMeals(p => p.map(m => String(m.uuid) === String(uuid) ? { ...m, pending: false } : m));
+        showToast("식단이 성공적으로 삭제되었습니다. ✨");
         return true;
       } else throw new Error("Delete failed");
     } catch (err) {

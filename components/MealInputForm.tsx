@@ -22,7 +22,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
-  const [time, setTime] = useState(editTarget?.time ? formatTime(editTarget.time) : getKSTTimeWithOffset(-60));
+  const [time, setTime] = useState(editTarget?.time ? formatTime(editTarget.time) : getKSTTime());
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,8 +92,8 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     return ingredients.filter(i => i.is_bookmarked).slice(0, 10);
   }, [ingredients]);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (isAddingNew) {
@@ -213,7 +213,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     }
     if (editTarget && onDelete) {
       setIsDeleting(true);
-      setShowDeleteConfirm(false); 
+      setShowDeleteConfirm(false);
       try {
         const success = await onDelete(editTarget.uuid);
         if (success) onClose();
@@ -488,8 +488,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
             <button 
               disabled={!preview || isDeleting} 
               onClick={() => {
-                const { date: d, time: t } = getKSTDateTimeWithOffset(0);
-                handleSave(MealStatus.ACTUAL, t, d);
+                handleSave(MealStatus.ACTUAL);
               }} 
               className="flex-[1.2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl active:scale-95 disabled:opacity-30 transition-all text-sm"
             >
