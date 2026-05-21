@@ -22,8 +22,15 @@ export async function getAIRecommendation(
   }
 
   try {
-    // Initializing the SDK with the retrieved API key
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    // Initializing the SDK with the retrieved API key details and required headers
+    const ai = new GoogleGenAI({ 
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     
     // Filter only actual meals
     const actualMeals = meals.filter(m => m.status === MealStatus.ACTUAL);
@@ -84,7 +91,7 @@ ${diaryStr}
 (남은 할당량 내에서 추가로 먹으면 좋을 메뉴 추천이나 응원의 말)`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
     });
 
@@ -105,7 +112,14 @@ export async function analyzeActivityImage(base64Image: string): Promise<{ steps
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const ai = new GoogleGenAI({ 
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     
     const prompt = `이 이미지는 운동 기록(걸음수, 칼로리 소모량 등)이 포함된 스크린샷이야.
 이미지에서 다음 정보를 찾아줘:
@@ -121,7 +135,7 @@ export async function analyzeActivityImage(base64Image: string): Promise<{ steps
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: [
         {
           inlineData: {
@@ -157,7 +171,14 @@ export async function analyzeMealDescription(description: string): Promise<{ nam
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const ai = new GoogleGenAI({ 
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     
     const prompt = `사용자가 입력한 식단 설명을 바탕으로 영양 성분(탄수화물, 단백질, 지방)을 추산하고, 식단 이름을 10자 내외로 요약해줘.
 설명: "${description}"
@@ -171,7 +192,7 @@ export async function analyzeMealDescription(description: string): Promise<{ nam
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json"
