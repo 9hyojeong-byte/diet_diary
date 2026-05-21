@@ -32,7 +32,6 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
 
       // Already fetching or already fetched in this session
       if (hasFetched.current) {
-        setLoading(false);
         return;
       }
 
@@ -60,6 +59,7 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
       if (!savedRecommendation) {
         hasFetched.current = false;
         setAdvice('');
+        setLoading(true);
       }
     }
   }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation]);
