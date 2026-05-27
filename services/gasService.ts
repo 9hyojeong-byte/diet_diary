@@ -1,7 +1,7 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyWXspUaUqt9E9LbssV1PsGPfnfQFzXCbgp6xvS72WwR8tKudKIQP-u560DZJ5URtpf/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbypkP5m0Jg-C3l6BfXIcxBJ_bafHtd61-zrSIFc6pm-IT49E2SW877TDY8hg5vQtRcW/exec';
 
 export async function fetchInitialData(): Promise<{ 
   meals: MealRecord[], 
