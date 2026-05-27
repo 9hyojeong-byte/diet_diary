@@ -26,6 +26,7 @@ import {
   deleteIngredientFromGAS,
   updateIngredientBookmark,
   saveDiaryToGAS,
+  updateDiaryInGAS,
   saveActivityToGAS,
   updateActivityInGAS,
   deleteActivityFromGAS,
@@ -323,24 +324,40 @@ const App: React.FC = () => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevDiaries = [...diaries];
     const now = getKSTFullTime();
+    
+    // Check if we already have a diary for the selected date to decide between Edit or Create
+    const isEdit = !!currentDiary;
+    
     const newDiary: HealthDiary = {
-      uuid: currentDiary?.uuid || crypto.randomUUID(),
+      uuid: isEdit ? currentDiary.uuid : crypto.randomUUID(),
       date: selectedDate,
       content,
       updated_at: now,
       pending: true
     };
+    
+    // Optimistic UI state update. Safeguard against date duplication.
     setDiaries(prev => {
-      const exists = prev.some(d => d.date === selectedDate);
-      return exists ? prev.map(d => d.date === selectedDate ? newDiary : d) : [...prev, newDiary];
-    });
-    try {
-      const success = await saveDiaryToGAS(newDiary);
-      if (success) {
-        setDiaries(prev => prev.map(d => d.date === selectedDate ? { ...newDiary, pending: false } : d));
-        showToast("건강 일기가 저장되었습니다! ✨");
+      const exists = prev.some(d => d.date === selectedDate || d.uuid === newDiary.uuid);
+      if (exists) {
+        return prev.map(d => (d.date === selectedDate || d.uuid === newDiary.uuid) ? newDiary : d);
+      } else {
+        return [...prev, newDiary];
       }
-      else throw new Error("Diary storage failed");
+    });
+    
+    try {
+      // Execute UPDATE if edit, otherwise INSERT (save)
+      const success = isEdit 
+        ? await updateDiaryInGAS(newDiary) 
+        : await saveDiaryToGAS(newDiary);
+        
+      if (success) {
+        setDiaries(prev => prev.map(d => d.uuid === newDiary.uuid ? { ...newDiary, pending: false } : d));
+        showToast(isEdit ? "건강 일기가 수정되었습니다! ✨" : "건강 일기가 저장되었습니다! ✨");
+      } else {
+        throw new Error("Diary persistent operation returned false");
+      }
     } catch (error) { 
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");

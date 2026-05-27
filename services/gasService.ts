@@ -270,6 +270,10 @@ export async function saveDiaryToGAS(diary: HealthDiary): Promise<boolean> {
   return callGAS('saveDiary', diary);
 }
 
+export async function updateDiaryInGAS(diary: HealthDiary): Promise<boolean> {
+  return callGAS('updateDiary', diary);
+}
+
 export async function saveActivityToGAS(activity: ActivityLog): Promise<boolean> {
   return callGAS('saveActivity', activity);
 }

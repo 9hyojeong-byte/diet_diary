@@ -46,6 +46,7 @@ function doPost(e) {
     case 'deleteIngredient': result = deleteIngredient(data.uuid); break;
     case 'updateBookmark': result = updateBookmark(data.uuid, data.is_bookmarked); break;
     case 'saveDiary': result = saveDiary(data); break;
+    case 'updateDiary': result = updateDiary(data); break;
     case 'saveMemo': result = saveMemo(data); break;
     case 'updateMemo': result = updateMemo(data); break;
     case 'deleteMemo': result = deleteMemo(data.id); break;
@@ -355,9 +356,12 @@ function saveDiary(data) {
   const rows = sheet.getDataRange().getValues();
   const headers = rows[0];
   const uuidIdx = headers.indexOf('uuid');
+  const dateIdx = headers.indexOf('date');
   
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][uuidIdx]) === String(data.uuid)) {
+    const rowUuid = String(rows[i][uuidIdx]);
+    const rowDate = String(rows[i][dateIdx]);
+    if (rowUuid === String(data.uuid) || (data.date && rowDate === String(data.date))) {
       const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
       sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
       return true;
@@ -365,6 +369,25 @@ function saveDiary(data) {
   }
   sheet.appendRow([data.uuid, data.date, data.content, data.updated_at]);
   return true;
+}
+
+function updateDiary(data) {
+  const sheet = getOrCreateSheet('diaries', ['uuid', 'date', 'content', 'updated_at']);
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const uuidIdx = headers.indexOf('uuid');
+  const dateIdx = headers.indexOf('date');
+  
+  for (let i = 1; i < rows.length; i++) {
+    const rowUuid = String(rows[i][uuidIdx]);
+    const rowDate = String(rows[i][dateIdx]);
+    if (rowUuid === String(data.uuid) || (data.date && rowDate === String(data.date))) {
+      const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
+      sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
+      return true;
+    }
+  }
+  return false;
 }
 
 // --- Memos ---
