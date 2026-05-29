@@ -47,13 +47,61 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKST());
   
-  const [meals, setMeals] = useState<MealRecord[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [diaries, setDiaries] = useState<HealthDiary[]>([]);
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
+  const [meals, setMeals] = useState<MealRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_meals');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+  const [ingredients, setIngredients] = useState<Ingredient[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_ingredients');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+  const [diaries, setDiaries] = useState<HealthDiary[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_diaries');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+  const [activities, setActivities] = useState<ActivityLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_activities');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_recommendations');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
   
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      // 식단 기록이 이미 캐싱되어 있다면 풀스크린 로딩창을 띄우지 않고 백그라운드 동기화를 진행하여 즉시 렌더링되도록 합니다.
+      return localStorage.getItem('local_meals') === null;
+    } catch (e) {
+      return true;
+    }
+  });
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
@@ -82,7 +130,7 @@ const App: React.FC = () => {
     const previousDate = sortedDates.find(d => d < date);
     
     if (previousDate) return nutrientTargetsMap[previousDate];
-
+ 
     // Default fallback
     return {
       kcal: 1600,
@@ -129,9 +177,56 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSidebarOpen, isInputOpen, isDiaryOpen, adviceModalOpen, isAdminLoginOpen]);
 
+  // 로컬 상태 변경 시 실시간으로 localStorage 캐시 업데이트 진행
+  useEffect(() => {
+    try {
+      localStorage.setItem('local_meals', JSON.stringify(meals));
+    } catch (e) {
+      console.error("Failed to sync meals to localStorage", e);
+    }
+  }, [meals]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('local_ingredients', JSON.stringify(ingredients));
+    } catch (e) {
+      console.error("Failed to sync ingredients to localStorage", e);
+    }
+  }, [ingredients]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('local_diaries', JSON.stringify(diaries));
+    } catch (e) {
+      console.error("Failed to sync diaries to localStorage", e);
+    }
+  }, [diaries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('local_activities', JSON.stringify(activities));
+    } catch (e) {
+      console.error("Failed to sync activities to localStorage", e);
+    }
+  }, [activities]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('local_recommendations', JSON.stringify(recommendations));
+    } catch (e) {
+      console.error("Failed to sync recommendations to localStorage", e);
+    }
+  }, [recommendations]);
+
   useEffect(() => {
     const loadData = async () => {
-      setIsLoading(true);
+      const hasLocalData = localStorage.getItem('local_meals') !== null;
+      if (hasLocalData) {
+        setIsLoading(false);
+        setIsSyncing(true);
+      } else {
+        setIsLoading(true);
+      }
       setLoadingEmoji(FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)]);
       try {
         const data = await fetchInitialData();
@@ -145,12 +240,30 @@ const App: React.FC = () => {
         (data.nutrientTargets || []).forEach(nt => {
           ntMap[nt.date] = { kcal: nt.kcal, carbs: nt.carbs, protein: nt.protein, fat: nt.fat };
         });
-        setNutrientTargetsMap(prev => ({ ...prev, ...ntMap }));
+        setNutrientTargetsMap(prev => {
+          const updated = { ...prev, ...ntMap };
+          localStorage.setItem('nutrientTargetsMap', JSON.stringify(updated));
+          return updated;
+        });
+
+        if (hasLocalData) {
+          showToast("최신 정보와 동기화되었습니다. ✨");
+        }
       } catch (error) {
         console.error("Failed to load data", error);
-        showToast("데이터를 불러오는 중 오류가 발생했습니다.");
+        if (hasLocalData) {
+          showToast("서버 동기화 실패. 최근 로드된 로컬 데이터를 표시합니다.");
+        } else {
+          showToast("데이터를 불러오는 중 오류가 발생했습니다.");
+        }
       } finally {
-        setTimeout(() => setIsLoading(false), 1200);
+        if (!hasLocalData) {
+          // 첫 시작 시에는 예쁜 애니메이션 튕김 효과를 온전히 즐길 수 있도록 1.2초 대기
+          setTimeout(() => setIsLoading(false), 1200);
+        } else {
+          setIsLoading(false);
+        }
+        setIsSyncing(false);
       }
     };
     loadData();
@@ -256,6 +369,8 @@ const App: React.FC = () => {
     if (meal.ingredient_name) return meal.ingredient_name;
     return '식재료 정보 없음';
   }, [ingredients]);
+
+/** 식단 복사 기능 **/
 
   const handleCopyTextToClipboard = useCallback((includePlanned: boolean = false) => {
     const mealsToCopy = filteredMeals.filter(m => 
@@ -498,7 +613,23 @@ const App: React.FC = () => {
              currentView === 'activity' ? '활동량 기록' : '나의 통계'}
           </h1>
         </div>
-        {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
+        <div className="flex items-center space-x-2">
+          {isSyncing && (
+            <div className="flex items-center space-x-1 bg-white/10 px-2.5 py-1 rounded-full text-white/90 animate-pulse border border-white/10">
+              <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-[9px] font-black tracking-tight select-none">동기화 중</span>
+            </div>
+          )}
+          {isAdmin && (
+            <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group">
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div>
+              <span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span>
+            </button>
+          )}
+        </div>
       </header>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
