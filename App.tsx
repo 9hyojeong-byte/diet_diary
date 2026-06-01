@@ -95,8 +95,8 @@ const App: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     try {
-      // 식단 기록이 이미 캐싱되어 있다면 풀스크린 로딩창을 띄우지 않고 백그라운드 동기화를 진행하여 즉시 렌더링되도록 합니다.
-      return localStorage.getItem('local_meals') === null;
+      // 식단 및 활동량 기록이 이미 캐싱되어 있다면 풀스크린 로딩창을 띄우지 않고 백그라운드 동기화를 진행하여 즉시 렌더링되도록 합니다.
+      return localStorage.getItem('local_meals') === null || localStorage.getItem('local_activities') === null;
     } catch (e) {
       return true;
     }
@@ -220,7 +220,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const hasLocalData = localStorage.getItem('local_meals') !== null;
+      const hasLocalData = localStorage.getItem('local_meals') !== null && localStorage.getItem('local_activities') !== null;
       if (hasLocalData) {
         setIsLoading(false);
         setIsSyncing(true);
@@ -712,7 +712,7 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
+      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} isSyncing={isSyncing} />}
       {isActivityUploadOpen && (
         <ActivityUploadForm 
           isOpen={isActivityUploadOpen}
