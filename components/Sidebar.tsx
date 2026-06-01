@@ -22,12 +22,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
   const targetProtein = selectedDate ? getTargetProtein(selectedDate) : 100;
 
   const handleEasterEgg = () => {
-    if (isAdmin) return;
-    
     setTaps(prev => {
       const next = prev + 1;
       if (next >= 10) {
-        onOpenAdminLogin?.();
+        if (isAdmin) {
+          onLogout?.();
+        } else {
+          onOpenAdminLogin?.();
+        }
         onClose(); // 드로워 닫기
         return 0;
       }

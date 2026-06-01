@@ -623,12 +623,6 @@ const App: React.FC = () => {
               <span className="text-[9px] font-black tracking-tight select-none">동기화 중</span>
             </div>
           )}
-          {isAdmin && (
-            <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group">
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div>
-              <span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span>
-            </button>
-          )}
         </div>
       </header>
 
