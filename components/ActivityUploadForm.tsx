@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { ActivityLog } from '../types';
 import { analyzeActivityImage } from '../services/geminiService';
+import { generateUUID } from '../utils';
 
 interface Props {
   isOpen: boolean;
@@ -55,7 +56,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     setIsSaving(true);
     try {
       await onSave({
-        uuid: existingActivity?.uuid || crypto.randomUUID(),
+        uuid: existingActivity?.uuid || generateUUID(),
         date,
         steps: parseInt(steps) || 0,
         active_calories: parseInt(activeCals) || 0,

@@ -40,8 +40,111 @@ const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴�
 
 const FOOD_EMOJIS = ['🥗', '🍎', '🥑', '🍗', '🍳', '🥛', '🍣', '🍱', '🥣', '🥦', '🍌', '🥪', '🥙', '🥗'];
 
+const DashboardSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Calendar Skeleton */}
+      <div className="bg-white rounded-[24px] p-4 shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-4">
+          <div className="h-5 w-24 bg-gray-200 rounded"></div>
+          <div className="h-5 w-16 bg-gray-200 rounded"></div>
+        </div>
+        <div className="flex justify-between">
+          {[...Array(7)].map((_, i) => (
+            <div key={i} className="flex flex-col items-center space-y-2">
+              <div className="h-3 w-6 bg-gray-200 rounded"></div>
+              <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Daily Summary Skeleton */}
+      <div className="bg-white rounded-[24px] p-6 shadow-md border border-gray-100">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <div className="h-4 w-28 bg-gray-200 rounded mb-2"></div>
+            <div className="h-6 w-36 bg-gray-200 rounded"></div>
+          </div>
+          <div className="h-8 w-16 bg-gray-200 rounded-full"></div>
+        </div>
+        <div className="flex items-center space-x-6">
+          <div className="relative flex-shrink-0">
+            <div className="w-24 h-24 rounded-full border-8 border-gray-100 flex items-center justify-center">
+              <div className="h-6 w-12 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+          <div className="flex-1 space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex justify-between">
+                  <div className="h-3 w-12 bg-gray-200 rounded"></div>
+                  <div className="h-3 w-8 bg-gray-200 rounded"></div>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full w-full"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Meals Skeleton */}
+      <div className="space-y-4">
+        {['아침 식단', '점심 식단', '간식 식단', '저녁 식단'].map((meal, idx) => (
+          <div key={idx} className="bg-white rounded-[24px] p-4 shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-50 mb-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                <div className="h-5 w-24 bg-gray-200 rounded"></div>
+              </div>
+              <div className="h-6 w-12 bg-gray-200 rounded-full"></div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                  <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                </div>
+                <div className="h-6 w-14 bg-gray-200 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const safePushState = (state: any, titleStr: string = '') => {
+  try {
+    window.history.pushState(state, titleStr);
+  } catch (e) {
+    console.warn("pushState is not supported in this environment", e);
+  }
+};
+
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  },
+  removeItem: (key: string): void => {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+};
+
 const App: React.FC = () => {
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => localStorage.getItem('isAdmin') === 'true');
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => safeLocalStorage.getItem('isAdmin') === 'true');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos' | 'activity'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -49,59 +152,65 @@ const App: React.FC = () => {
   
   const [meals, setMeals] = useState<MealRecord[]>(() => {
     try {
-      const saved = localStorage.getItem('local_meals');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
+      const cached = safeLocalStorage.getItem('cached_meals');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
   });
   const [ingredients, setIngredients] = useState<Ingredient[]>(() => {
     try {
-      const saved = localStorage.getItem('local_ingredients');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
+      const cached = safeLocalStorage.getItem('cached_ingredients');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
   });
   const [diaries, setDiaries] = useState<HealthDiary[]>(() => {
     try {
-      const saved = localStorage.getItem('local_diaries');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
+      const cached = safeLocalStorage.getItem('cached_diaries');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
   });
   const [activities, setActivities] = useState<ActivityLog[]>(() => {
     try {
-      const saved = localStorage.getItem('local_activities');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
+      const cached = safeLocalStorage.getItem('cached_activities');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
   });
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>(() => {
     try {
-      const saved = localStorage.getItem('local_recommendations');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
+      const cached = safeLocalStorage.getItem('cached_recommendations');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
   });
   
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
     try {
-      // 식단 및 활동량 기록이 이미 캐싱되어 있다면 풀스크린 로딩창을 띄우지 않고 백그라운드 동기화를 진행하여 즉시 렌더링되도록 합니다.
-      return localStorage.getItem('local_meals') === null || localStorage.getItem('local_activities') === null;
-    } catch (e) {
+      const cachedMeals = safeLocalStorage.getItem('cached_meals');
+      const cachedIngredients = safeLocalStorage.getItem('cached_ingredients');
+      const parsedMeals = cachedMeals ? JSON.parse(cachedMeals) : [];
+      const parsedIngredients = cachedIngredients ? JSON.parse(cachedIngredients) : [];
+      const hasCache = (Array.isArray(parsedMeals) && parsedMeals.length > 0) || 
+                       (Array.isArray(parsedIngredients) && parsedIngredients.length > 0);
+      return !hasCache;
+    } catch {
       return true;
     }
   });
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
@@ -115,12 +224,47 @@ const App: React.FC = () => {
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const [nutrientTargetsMap, setNutrientTargetsMap] = useState<Record<string, NutrientTargets>>(() => {
-    const saved = localStorage.getItem('nutrientTargetsMap');
-    if (saved) return JSON.parse(saved);
-    const legacy = localStorage.getItem('nutrientTargets');
-    if (legacy) return { [selectedDate]: JSON.parse(legacy) };
-    return {};
+    try {
+      const saved = safeLocalStorage.getItem('nutrientTargetsMap');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+      const legacy = safeLocalStorage.getItem('nutrientTargets');
+      if (legacy) {
+        const parsedLegacy = JSON.parse(legacy);
+        return { [selectedDate]: parsedLegacy };
+      }
+      return {};
+    } catch {
+      return {};
+    }
   });
+
+  // Sync state changes to localStorage
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_meals', JSON.stringify(meals));
+  }, [meals]);
+
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_ingredients', JSON.stringify(ingredients));
+  }, [ingredients]);
+
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_diaries', JSON.stringify(diaries));
+  }, [diaries]);
+
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_activities', JSON.stringify(activities));
+  }, [activities]);
+
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_recommendations', JSON.stringify(recommendations));
+  }, [recommendations]);
+
+  useEffect(() => {
+    safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(nutrientTargetsMap));
+  }, [nutrientTargetsMap]);
 
   const getTargetForDate = useCallback((date: string): NutrientTargets => {
     if (nutrientTargetsMap[date]) return nutrientTargetsMap[date];
@@ -130,7 +274,7 @@ const App: React.FC = () => {
     const previousDate = sortedDates.find(d => d < date);
     
     if (previousDate) return nutrientTargetsMap[previousDate];
- 
+
     // Default fallback
     return {
       kcal: 1600,
@@ -145,7 +289,7 @@ const App: React.FC = () => {
   const onUpdateNutrientTargets = async (newTargets: NutrientTargets) => {
     const newMap = { ...nutrientTargetsMap, [selectedDate]: newTargets };
     setNutrientTargetsMap(newMap);
-    localStorage.setItem('nutrientTargetsMap', JSON.stringify(newMap));
+    safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(newMap));
     
     try {
       await saveNutrientTargetsToGAS({ ...newTargets, date: selectedDate });
@@ -163,107 +307,91 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    window.history.pushState({ noBackExitsApp: true }, '');
+    safePushState({ noBackExitsApp: true }, '');
     const handlePopState = (event: PopStateEvent) => {
-      if (isSidebarOpen) { setIsSidebarOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
-      if (isInputOpen) { setIsInputOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
-      if (isDiaryOpen) { setIsDiaryOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
-      if (isActivityUploadOpen) { setIsActivityUploadOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
-      if (adviceModalOpen) { setAdviceModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
-      if (isAdminLoginOpen) { setIsAdminLoginOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); return; }
+      if (isSidebarOpen) { setIsSidebarOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (isInputOpen) { setIsInputOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (isDiaryOpen) { setIsDiaryOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (isActivityUploadOpen) { setIsActivityUploadOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (adviceModalOpen) { setAdviceModalOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (isAdminLoginOpen) { setIsAdminLoginOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
       setIsExitModalOpen(true);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSidebarOpen, isInputOpen, isDiaryOpen, adviceModalOpen, isAdminLoginOpen]);
-
-  // 로컬 상태 변경 시 실시간으로 localStorage 캐시 업데이트 진행
-  useEffect(() => {
-    try {
-      localStorage.setItem('local_meals', JSON.stringify(meals));
-    } catch (e) {
-      console.error("Failed to sync meals to localStorage", e);
-    }
-  }, [meals]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('local_ingredients', JSON.stringify(ingredients));
-    } catch (e) {
-      console.error("Failed to sync ingredients to localStorage", e);
-    }
-  }, [ingredients]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('local_diaries', JSON.stringify(diaries));
-    } catch (e) {
-      console.error("Failed to sync diaries to localStorage", e);
-    }
-  }, [diaries]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('local_activities', JSON.stringify(activities));
-    } catch (e) {
-      console.error("Failed to sync activities to localStorage", e);
-    }
-  }, [activities]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('local_recommendations', JSON.stringify(recommendations));
-    } catch (e) {
-      console.error("Failed to sync recommendations to localStorage", e);
-    }
-  }, [recommendations]);
+  }, [isSidebarOpen, isInputOpen, isDiaryOpen, isActivityUploadOpen, adviceModalOpen, isAdminLoginOpen]);
 
   useEffect(() => {
     const loadData = async () => {
-      const hasLocalData = localStorage.getItem('local_meals') !== null && localStorage.getItem('local_activities') !== null;
-      if (hasLocalData) {
-        setIsLoading(false);
-        setIsSyncing(true);
-      } else {
-        setIsLoading(true);
-      }
-      setLoadingEmoji(FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)]);
+      setIsBackgroundSyncing(true);
       try {
         const data = await fetchInitialData();
-        setMeals(data.meals || []);
-        setIngredients(data.ingredients || []);
-        setDiaries(data.diaries || []);
-        setActivities(data.activities || []);
-        setRecommendations(data.recommendations || []);
+        let hasChanges = false;
 
-        const ntMap: Record<string, NutrientTargets> = {};
+        const currentMealsStr = safeLocalStorage.getItem('cached_meals') || '[]';
+        const fetchedMealsStr = JSON.stringify(data.meals || []);
+        if (fetchedMealsStr !== currentMealsStr) {
+          setMeals(data.meals || []);
+          hasChanges = true;
+        }
+
+        const currentIngredientsStr = safeLocalStorage.getItem('cached_ingredients') || '[]';
+        const fetchedIngredientsStr = JSON.stringify(data.ingredients || []);
+        if (fetchedIngredientsStr !== currentIngredientsStr) {
+          setIngredients(data.ingredients || []);
+          hasChanges = true;
+        }
+
+        const currentDiariesStr = safeLocalStorage.getItem('cached_diaries') || '[]';
+        const fetchedDiariesStr = JSON.stringify(data.diaries || []);
+        if (fetchedDiariesStr !== currentDiariesStr) {
+          setDiaries(data.diaries || []);
+          hasChanges = true;
+        }
+
+        const currentActivitiesStr = safeLocalStorage.getItem('cached_activities') || '[]';
+        const fetchedActivitiesStr = JSON.stringify(data.activities || []);
+        if (fetchedActivitiesStr !== currentActivitiesStr) {
+          setActivities(data.activities || []);
+          hasChanges = true;
+        }
+
+        const currentRecommendationsStr = safeLocalStorage.getItem('cached_recommendations') || '[]';
+        const fetchedRecommendationsStr = JSON.stringify(data.recommendations || []);
+        if (fetchedRecommendationsStr !== currentRecommendationsStr) {
+          setRecommendations(data.recommendations || []);
+          hasChanges = true;
+        }
+
+        const newNtMap: Record<string, NutrientTargets> = {};
         (data.nutrientTargets || []).forEach(nt => {
-          ntMap[nt.date] = { kcal: nt.kcal, carbs: nt.carbs, protein: nt.protein, fat: nt.fat };
-        });
-        setNutrientTargetsMap(prev => {
-          const updated = { ...prev, ...ntMap };
-          localStorage.setItem('nutrientTargetsMap', JSON.stringify(updated));
-          return updated;
+          if (nt && nt.date) {
+            newNtMap[nt.date] = { 
+              kcal: Number(nt.kcal) || 1600, 
+              carbs: Number(nt.carbs) || 200, 
+              protein: Number(nt.protein) || 120, 
+              fat: Number(nt.fat) || 35 
+            };
+          }
         });
 
-        if (hasLocalData) {
-          showToast("최신 정보와 동기화되었습니다. ✨");
+        const currentNutrientTargetsStr = safeLocalStorage.getItem('nutrientTargetsMap') || '{}';
+        const fetchedNutrientTargetsStr = JSON.stringify(newNtMap);
+        if (fetchedNutrientTargetsStr !== currentNutrientTargetsStr) {
+          setNutrientTargetsMap(prev => ({ ...prev, ...newNtMap }));
+          hasChanges = true;
+        }
+
+        const hadCache = currentMealsStr !== '[]' || currentIngredientsStr !== '[]';
+        if (hasChanges && hadCache) {
+          showToast("최신 정보가 업데이트되었습니다 ✨");
         }
       } catch (error) {
-        console.error("Failed to load data", error);
-        if (hasLocalData) {
-          showToast("서버 동기화 실패. 최근 로드된 로컬 데이터를 표시합니다.");
-        } else {
-          showToast("데이터를 불러오는 중 오류가 발생했습니다.");
-        }
+        console.error("Failed to load data in background", error);
+        showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
       } finally {
-        if (!hasLocalData) {
-          // 첫 시작 시에는 예쁜 애니메이션 튕김 효과를 온전히 즐길 수 있도록 1.2초 대기
-          setTimeout(() => setIsLoading(false), 1200);
-        } else {
-          setIsLoading(false);
-        }
-        setIsSyncing(false);
+        setIsInitialLoad(false);
+        setIsBackgroundSyncing(false);
       }
     };
     loadData();
@@ -532,11 +660,11 @@ const App: React.FC = () => {
     }
   }, [ingredients, isAdmin]);
 
-  const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); localStorage.setItem('isAdmin', 'true'); } };
+  const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); safeLocalStorage.setItem('isAdmin', 'true'); } };
   const handleLogout = () => { 
     if (confirm('관리자 모드를 해제하시겠습니까?')) { 
       setIsAdmin(false); 
-      localStorage.removeItem('isAdmin'); 
+      safeLocalStorage.removeItem('isAdmin'); 
       if (currentView === 'memos') setCurrentView('main');
     } 
   };
@@ -578,19 +706,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
-      {isLoading && (
-        <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
-          <div className="relative mb-8">
-            <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center animate-pulse">
-              <span className="text-6xl animate-bounce" style={{ display: 'inline-block' }}>{loadingEmoji}</span>
-            </div>
-            <div className="absolute -inset-2 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-          </div>
-          <h2 className="text-xl font-black text-gray-800 mb-2">데이터를 불러오는 중입니다...</h2>
-          <p className="text-sm text-gray-400 font-medium">잠시만 기다려 주세요 ✨</p>
-        </div>
-      )}
-
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           {toastMessage}
@@ -606,30 +721,30 @@ const App: React.FC = () => {
           ) : (
             <button onClick={() => { setCurrentView('main'); setIsActivityUploadOpen(false); }} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></button>
           )}
-          <h1 className="ml-2 text-xl font-bold">
-            {currentView === 'main' ? '쿠쿠님의 식단 기록' : 
-             currentView === 'ingredients' ? '식재료 관리' : 
-             currentView === 'memos' ? '메모 목록' : 
-             currentView === 'activity' ? '활동량 기록' : '나의 통계'}
+          <h1 className="ml-2 text-xl font-bold flex items-center">
+            <span>
+              {currentView === 'main' ? '쿠쿠님의 식단 기록' : 
+               currentView === 'ingredients' ? '식재료 관리' : 
+               currentView === 'memos' ? '메모 목록' : 
+               currentView === 'activity' ? '활동량 기록' : '나의 통계'}
+            </span>
+            {isBackgroundSyncing && (
+              <span className="flex h-2.5 w-2.5 relative ml-2.5" title="최신 데이터 동기화 중...">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            )}
           </h1>
         </div>
-        <div className="flex items-center space-x-2">
-          {isSyncing && (
-            <div className="flex items-center space-x-1 bg-white/10 px-2.5 py-1 rounded-full text-white/90 animate-pulse border border-white/10">
-              <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="text-[9px] font-black tracking-tight select-none">동기화 중</span>
-            </div>
-          )}
-        </div>
+        {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
       </header>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
 
       <main className="p-4">
-        {currentView === 'main' ? (
+        {isInitialLoad ? (
+          <DashboardSkeleton />
+        ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
             <DailySummaryView 
@@ -690,7 +805,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {currentView === 'main' && !isActivityUploadOpen && (
+      {currentView === 'main' && !isActivityUploadOpen && !isInitialLoad && (
         <button 
           onClick={() => {
             if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -706,7 +821,7 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} isSyncing={isSyncing} />}
+      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
       {isActivityUploadOpen && (
         <ActivityUploadForm 
           isOpen={isActivityUploadOpen}
@@ -733,7 +848,7 @@ const App: React.FC = () => {
         />
       )}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
-      {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); window.history.pushState({ noBackExitsApp: true }, ''); }} />}
+      {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); safePushState({ noBackExitsApp: true }, ''); }} />}
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Memo } from '../types';
 import { fetchMemos, saveMemoToGAS, updateMemoInGAS, deleteMemoFromGAS } from '../services/gasService';
 import MemoInputModal from './MemoInputModal';
+import { generateUUID } from '../utils';
 
 interface MemoListProps {
   isAdmin: boolean;
@@ -74,7 +75,7 @@ const MemoList: React.FC<MemoListProps> = ({ isAdmin, trialMessage }) => {
       await updateMemoInGAS(updatedMemo);
     } else {
       const newMemo: Memo = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         content,
         createdAt: now,
         updatedAt: now

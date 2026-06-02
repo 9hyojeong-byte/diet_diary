@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Ingredient } from '../types';
+import { generateUUID } from '../utils';
 
 interface Props {
   ingredients: Ingredient[];
@@ -164,7 +165,7 @@ const IngredientFormModal: React.FC<{ target: Ingredient | null, onClose: () => 
   const handleSave = () => {
     if (!formData.name || !formData.kcal) return;
     onSave({
-      uuid: target?.uuid || crypto.randomUUID(),
+      uuid: target?.uuid || generateUUID(),
       name: formData.name,
       base_amount: parseFloat(formData.base),
       kcal: parseFloat(formData.kcal),

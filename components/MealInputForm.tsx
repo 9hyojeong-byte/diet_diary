@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
-import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime, getKSTDateTimeWithOffset } from '../utils';
+import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime, getKSTDateTimeWithOffset, generateUUID } from '../utils';
 import { analyzeMealDescription } from '../services/geminiService';
 
 interface Props {
@@ -16,10 +16,9 @@ interface Props {
   onSave: (meal: MealRecord, ingredient?: Ingredient) => void;
   onDelete?: (uuid: string) => Promise<boolean>;
   trialMessage?: string;
-  isSyncing?: boolean;
 }
 
-const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onDelete, trialMessage, isSyncing = false }) => {
+const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onDelete, trialMessage }) => {
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
@@ -163,7 +162,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     
     if (isAddingNew && shouldSaveToIngredients) {
       newIngData = {
-        uuid: crypto.randomUUID(),
+        uuid: generateUUID(),
         name: finalIngredientName,
         base_amount: parseFloat(newBase) || 1,
         kcal: parseFloat(newKcal) || 0,
@@ -189,7 +188,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     }
     
     onSave({
-      uuid: editTarget?.uuid || crypto.randomUUID(),
+      uuid: editTarget?.uuid || generateUUID(),
       type,
       status: finalStatus,
       date: finalDate,
@@ -470,14 +469,14 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               </button>
             )}
             <button 
-              disabled={!preview || isDeleting || isSyncing} 
+              disabled={!preview || isDeleting} 
               onClick={() => handleSave(MealStatus.PLANNED)} 
               className="flex-1 py-4 bg-white text-gray-500 border border-gray-200 font-black rounded-2xl active:scale-95 disabled:opacity-30 transition-all text-sm"
             >
               예정
             </button>
             <button 
-              disabled={!preview || isDeleting || isSyncing} 
+              disabled={!preview || isDeleting} 
               onClick={() => {
                 const { date: d, time: t } = getKSTDateTimeWithOffset(-60);
                 handleSave(MealStatus.ACTUAL, t, d);
@@ -487,7 +486,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
               1시간 전
             </button>
             <button 
-              disabled={!preview || isDeleting || isSyncing} 
+              disabled={!preview || isDeleting} 
               onClick={() => {
                 handleSave(MealStatus.ACTUAL);
               }} 

@@ -1,5 +1,6 @@
 
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
+import { generateUUID } from '../utils';
 
 const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbypkP5m0Jg-C3l6BfXIcxBJ_bafHtd61-zrSIFc6pm-IT49E2SW877TDY8hg5vQtRcW/exec';
 
@@ -22,7 +23,8 @@ export async function fetchInitialData(): Promise<{
     }
     
     const data = await response.json();
-    
+    const dataObj = (data && typeof data === 'object') ? data : {};
+
     const toKSTDate = (dateStr: string) => {
       if (!dateStr) return '';
       
@@ -85,58 +87,70 @@ export async function fetchInitialData(): Promise<{
       return s.slice(0, 5);
     };
 
-    const sanitizedIngredients = (data.ingredients || []).map((ing: any) => ({
-      ...ing,
-      is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
-      base_amount: Number(ing.base_amount) || 100,
-      kcal: Number(ing.kcal) || 0,
-      carbs: Number(ing.carbs) || 0,
-      protein: Number(ing.protein) || 0,
-      fat: Number(ing.fat) || 0,
-      sugar: Number(ing.sugar) || 0,
-      fiber: Number(ing.fiber) || 0
-    }));
+    const sanitizedIngredients = (dataObj.ingredients || [])
+      .filter((ing: any) => ing !== null && ing !== undefined)
+      .map((ing: any) => ({
+        ...ing,
+        is_bookmarked: String(ing.is_bookmarked).toLowerCase() === 'true',
+        base_amount: Number(ing.base_amount) || 100,
+        kcal: Number(ing.kcal) || 0,
+        carbs: Number(ing.carbs) || 0,
+        protein: Number(ing.protein) || 0,
+        fat: Number(ing.fat) || 0,
+        sugar: Number(ing.sugar) || 0,
+        fiber: Number(ing.fiber) || 0
+      }));
 
-    const sanitizedMeals = (data.meals || []).map((meal: any) => ({
-      ...meal,
-      date: toKSTDate(meal.date),
-      time: toKSTTime(meal.time),
-      status: (meal.status as MealStatus) || MealStatus.ACTUAL,
-      amount: Number(meal.amount) || 0,
-      kcal: Number(meal.kcal) || 0,
-      carbs: Number(meal.carbs) || 0,
-      protein: Number(meal.protein) || 0,
-      fat: Number(meal.fat) || 0,
-      sugar: Number(meal.sugar) || 0,
-      fiber: Number(meal.fiber) || 0
-    }));
+    const sanitizedMeals = (dataObj.meals || [])
+      .filter((meal: any) => meal !== null && meal !== undefined)
+      .map((meal: any) => ({
+        ...meal,
+        date: toKSTDate(meal.date),
+        time: toKSTTime(meal.time),
+        status: (meal.status as MealStatus) || MealStatus.ACTUAL,
+        amount: Number(meal.amount) || 0,
+        kcal: Number(meal.kcal) || 0,
+        carbs: Number(meal.carbs) || 0,
+        protein: Number(meal.protein) || 0,
+        fat: Number(meal.fat) || 0,
+        sugar: Number(meal.sugar) || 0,
+        fiber: Number(meal.fiber) || 0
+      }));
 
-    const sanitizedDiaries = (data.diaries || []).map((d: any) => ({
-      ...d,
-      date: toKSTDate(d.date)
-    }));
+    const sanitizedDiaries = (dataObj.diaries || [])
+      .filter((d: any) => d !== null && d !== undefined)
+      .map((d: any) => ({
+        ...d,
+        date: toKSTDate(d.date)
+      }));
 
-    const sanitizedActivities = (data.activities || []).map((a: any) => ({
-      ...a,
-      uuid: a.uuid || crypto.randomUUID(),
-      date: toKSTDate(a.date),
-      steps: Number(a.steps) || 0,
-      active_calories: Number(a.active_calories) || 0,
-      total_calories: Number(a.total_calories) || 0
-    }));
+    const sanitizedActivities = (dataObj.activities || [])
+      .filter((a: any) => a !== null && a !== undefined)
+      .map((a: any) => ({
+        ...a,
+        uuid: a.uuid || generateUUID(),
+        date: toKSTDate(a.date),
+        steps: Number(a.steps) || 0,
+        active_calories: Number(a.active_calories) || 0,
+        total_calories: Number(a.total_calories) || 0
+      }));
 
-    const sanitizedRecommendations = (data.recommendations || []).map((r: any) => ({
-      ...r,
-      date: toKSTDate(r.date)
-    }));
+    const sanitizedRecommendations = (dataObj.recommendations || [])
+      .filter((r: any) => r !== null && r !== undefined)
+      .map((r: any) => ({
+        ...r,
+        date: toKSTDate(r.date)
+      }));
 
-    const sanitizedNutrientTargets = (data.nutrient_targets || []).map((nt: any) => ({
-      date: nt.date, // Already saved as YYYY-MM-DD usually, but toKSTDate if needed
-      kcal: Number(nt.kcal) || 0,
-      carbs: Number(nt.carbs) || 0,
-      protein: Number(nt.protein) || 0,
-      fat: Number(nt.fat) || 0
-    }));
+    const sanitizedNutrientTargets = (dataObj.nutrient_targets || [])
+      .filter((nt: any) => nt !== null && nt !== undefined && nt.date)
+      .map((nt: any) => ({
+        date: nt.date,
+        kcal: Number(nt.kcal) || 0,
+        carbs: Number(nt.carbs) || 0,
+        protein: Number(nt.protein) || 0,
+        fat: Number(nt.fat) || 0
+      }));
 
     return { 
       meals: sanitizedMeals, 
