@@ -61,7 +61,6 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
         steps: parseInt(steps) || 0,
         active_calories: parseInt(activeCals) || 0,
         total_calories: parseInt(totalCals) || 0,
-        image_url: imageUrl || undefined,
         created_at: new Date().toISOString()
       });
     } finally {
