@@ -21,48 +21,42 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
   const [advice, setAdvice] = useState('');
   const hasFetched = useRef(false);
 
+  const fetchAdvice = () => {
+    setLoading(true);
+    getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
+      .then(res => {
+        if (res) {
+          setAdvice(res);
+          onSaveRecommendation(res);
+        } else {
+          setAdvice("조언을 가져오는데 실패했어요. 다시 시도해볼까요?");
+        }
+      })
+      .catch(error => {
+        console.error("Failed to load AI advice", error);
+        setAdvice("데이터를 불러오는데 실패했어요.");
+      })
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (savedRecommendation) {
         setAdvice(savedRecommendation.advice);
         setLoading(false);
         hasFetched.current = true;
-        return;
+      } else {
+        if (!hasFetched.current) {
+          hasFetched.current = true;
+          fetchAdvice();
+        }
       }
-
-      // Already fetching or already fetched in this session
-      if (hasFetched.current) {
-        return;
-      }
-
-      setLoading(true);
-      hasFetched.current = true;
-      
-      getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
-        .then(res => {
-          if (res) {
-            setAdvice(res);
-            onSaveRecommendation(res);
-          } else {
-            setAdvice("조언을 가져오는데 실패했어요. 다시 시도해볼까요?");
-            hasFetched.current = false; // Allow retry on failure
-          }
-        })
-        .catch(error => {
-          console.error("Failed to load AI advice", error);
-          setAdvice("데이터를 불러오는데 실패했어요.");
-          hasFetched.current = false; // Allow retry on error
-        })
-        .finally(() => setLoading(false));
     } else {
-      // Reset when modal closes so it can fetch again if needed next time (unless it's already saved)
-      if (!savedRecommendation) {
-        hasFetched.current = false;
-        setAdvice('');
-        setLoading(true);
-      }
+      hasFetched.current = false;
+      setAdvice('');
+      setLoading(true);
     }
-  }, [isOpen, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation]);
+  }, [isOpen, savedRecommendation]);
 
   if (!isOpen) return null;
 
@@ -103,10 +97,19 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 border-t border-gray-100 w-full flex justify-center">
+              <div className="mt-6 pt-4 border-t border-gray-100 w-full flex gap-3">
+                {savedRecommendation && (
+                  <button 
+                    onClick={fetchAdvice}
+                    className="flex-1 py-4 bg-white border-2 border-indigo-500 text-indigo-600 rounded-2xl font-black hover:bg-indigo-50 transition-all active:scale-[0.98] shadow-md flex items-center justify-center space-x-1"
+                  >
+                    <span>🔄</span>
+                    <span>다시받기</span>
+                  </button>
+                )}
                 <button 
                   onClick={onClose}
-                  className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
+                  className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
                 >
                   확인했어요!
                 </button>

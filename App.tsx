@@ -123,6 +123,38 @@ const safePushState = (state: any, titleStr: string = '') => {
   }
 };
 
+const parseCreatedAt = (str: string): number => {
+  if (!str) return 0;
+  const t = Date.parse(str);
+  if (!isNaN(t)) return t;
+
+  try {
+    const parts = str.split(' ');
+    if (parts.length >= 4) {
+      const year = parseInt(parts[0].replace('.', '')) || 2026;
+      const month = (parseInt(parts[1].replace('.', '')) || 1) - 1;
+      const day = parseInt(parts[2].replace('.', '')) || 1;
+      
+      const ampm = parts[3];
+      const timeParts = parts[4] ? parts[4].split(':') : ['0', '0', '0'];
+      let hour = parseInt(timeParts[0]) || 0;
+      const minute = parseInt(timeParts[1]) || 0;
+      const second = parseInt(timeParts[2]) || 0;
+
+      if (ampm === '오후' && hour < 12) {
+        hour += 12;
+      } else if (ampm === '오전' && hour === 12) {
+        hour = 0;
+      }
+      return new Date(year, month, day, hour, minute, second).getTime();
+    }
+  } catch (e) {
+    console.error("Failed parsing created_at", str, e);
+  }
+  
+  return 0;
+};
+
 const safeLocalStorage = {
   getItem: (key: string): string | null => {
     try {
@@ -406,7 +438,16 @@ const App: React.FC = () => {
   const filteredMeals = useMemo(() => meals.filter(m => String(m.date).startsWith(selectedDate) && m.status !== MealStatus.CANCELED), [meals, selectedDate]);
   const currentDiary = useMemo(() => diaries.find(d => d.date === selectedDate), [diaries, selectedDate]);
   const currentActivity = useMemo(() => activities.find(a => a.date === selectedDate), [activities, selectedDate]);
-  const currentRecommendation = useMemo(() => recommendations.find(r => r.date === selectedDate), [recommendations, selectedDate]);
+  const currentRecommendation = useMemo(() => {
+    const dayRecommendations = recommendations.filter(r => r.date === selectedDate);
+    if (dayRecommendations.length === 0) return undefined;
+    
+    return [...dayRecommendations].sort((a, b) => {
+      const timeA = parseCreatedAt(a.created_at);
+      const timeB = parseCreatedAt(b.created_at);
+      return timeB - timeA;
+    })[0];
+  }, [recommendations, selectedDate]);
 
   const summary = useMemo(() => {
     const initial = { kcal: 0, carbs: 0, protein: 0, fat: 0 };
@@ -687,10 +728,6 @@ const App: React.FC = () => {
     };
     
     setRecommendations(prev => {
-      const exists = prev.some(r => r.date === selectedDate);
-      if (exists) {
-        return prev.map(r => r.date === selectedDate ? newRecommendation : r);
-      }
       return [...prev, newRecommendation];
     });
 
@@ -702,7 +739,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Failed to save AI Recommendation", error);
     }
-  }, [selectedDate]);
+  }, [recommendations, selectedDate]);
 
   return (
     <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
