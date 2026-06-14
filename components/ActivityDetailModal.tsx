@@ -56,6 +56,30 @@ const ActivityDetailModal: React.FC<Props> = ({ activity, onClose }) => {
             </div>
           </div>
 
+          {/* TEF & TDEE detail values */}
+          {(activity.tef !== undefined || activity.tdee !== undefined) && (
+            <div className="bg-gradient-to-br from-indigo-50/50 to-slate-50 p-4 rounded-2xl border border-indigo-100/50 flex flex-col space-y-3">
+              <h4 className="text-[10px] font-black text-indigo-900 flex items-center space-x-1 uppercase tracking-wider">
+                <span>🔥</span>
+                <span>대사량 상세 정보</span>
+              </h4>
+              <div className="space-y-2.5">
+                {activity.tef !== undefined && activity.tef !== null && (
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100">
+                    <span className="text-slate-500 font-medium">식사 유도성 열생산 (TEF)</span>
+                    <span className="font-black text-orange-600">{activity.tef.toLocaleString()} kcal</span>
+                  </div>
+                )}
+                {activity.tdee !== undefined && activity.tdee !== null && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-800 font-extrabold">예측 TDEE (하루 총 대사량)</span>
+                    <span className="font-black text-indigo-600 text-base">{activity.tdee.toLocaleString()} kcal</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="pt-4">
             <button 
               onClick={onClose}

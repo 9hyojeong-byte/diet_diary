@@ -173,24 +173,47 @@ function saveNutrientTargets(data) {
 
 // --- Activity Logs (UUID Based) ---
 
+function ensureActivityHeaders(sheet) {
+  const range = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  const headers = range.getValues()[0];
+  const missing = [];
+  if (headers.indexOf('tef') === -1) missing.push('tef');
+  if (headers.indexOf('tdee') === -1) missing.push('tdee');
+  if (missing.length > 0) {
+    const startCol = headers.length + 1;
+    sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
+  }
+}
+
 function saveActivity(data) {
-  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at']);
-  sheet.appendRow([
-    data.uuid,
-    data.date,
-    data.steps,
-    data.active_calories,
-    data.total_calories,
-    data.image_url || '',
-    data.created_at || new Date().toISOString()
-  ]);
+  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at', 'tef', 'tdee']);
+  ensureActivityHeaders(sheet);
+  
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rowData = headers.map(h => {
+    if (h === 'uuid') return data.uuid;
+    if (h === 'date') return data.date;
+    if (h === 'steps') return data.steps !== undefined ? data.steps : 0;
+    if (h === 'active_calories') return data.active_calories !== undefined ? data.active_calories : 0;
+    if (h === 'total_calories') return data.total_calories !== undefined ? data.total_calories : 0;
+    if (h === 'tef') return data.tef !== undefined ? data.tef : '';
+    if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
+    if (h === 'image_url') return data.image_url || '';
+    if (h === 'created_at') return data.created_at || new Date().toISOString();
+    return '';
+  });
+  
+  sheet.appendRow(rowData);
   return true;
 }
 
 function updateActivity(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('activity_logs');
   if (!sheet) return false;
-  const rows = sheet.getDataRange().getValues();
+  ensureActivityHeaders(sheet);
+  
+  const range = sheet.getDataRange();
+  const rows = range.getValues();
   const headers = rows[0];
   const uuidIdx = headers.indexOf('uuid');
   
@@ -199,9 +222,11 @@ function updateActivity(data) {
       const newRow = headers.map(h => {
         if (h === 'uuid') return data.uuid;
         if (h === 'date') return data.date;
-        if (h === 'steps') return data.steps;
-        if (h === 'active_calories') return data.active_calories;
-        if (h === 'total_calories') return data.total_calories;
+        if (h === 'steps') return data.steps !== undefined ? data.steps : 0;
+        if (h === 'active_calories') return data.active_calories !== undefined ? data.active_calories : 0;
+        if (h === 'total_calories') return data.total_calories !== undefined ? data.total_calories : 0;
+        if (h === 'tef') return data.tef !== undefined ? data.tef : '';
+        if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
         if (h === 'image_url') return data.image_url || '';
         if (h === 'created_at') return rows[i][headers.indexOf('created_at')];
         return rows[i][headers.indexOf(h)];

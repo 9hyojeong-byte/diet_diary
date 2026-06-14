@@ -766,9 +766,12 @@ const App: React.FC = () => {
                currentView === 'activity' ? '활동량 기록' : '나의 통계'}
             </span>
             {isBackgroundSyncing && (
-              <span className="flex h-2.5 w-2.5 relative ml-2.5" title="최신 데이터 동기화 중...">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="ml-2 px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-full text-[10px] font-black flex items-center space-x-1 animate-pulse" title="최신 데이터 동기화 중...">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                </span>
+                <span>동기화 중</span>
               </span>
             )}
           </h1>
@@ -783,6 +786,22 @@ const App: React.FC = () => {
           <DashboardSkeleton />
         ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {isBackgroundSyncing && (
+              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 border border-indigo-100 text-indigo-700 px-4 py-3.5 rounded-[24px] flex items-center space-x-3 shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="relative flex h-5 w-5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-indigo-600 flex items-center justify-center text-xs text-white">🔄</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black tracking-tight leading-none text-indigo-900">최신 데이터 동기화 중...</p>
+                  <p className="text-[10px] text-indigo-500 font-bold mt-0.5">구글 스프레드시트(DB)에서 최신 식단 및 활동 기록을 안전하게 가져오고 있습니다.</p>
+                </div>
+                <div className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-xl shrink-0">
+                  <span className="w-1 h-1 rounded-full bg-indigo-600 animate-bounce"></span>
+                  <span>로딩 중</span>
+                </div>
+              </div>
+            )}
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
             <DailySummaryView 
               summary={summary} 
@@ -867,6 +886,7 @@ const App: React.FC = () => {
           onSave={onSaveActivity} 
           onDelete={onDeleteActivity}
           onCancel={() => setIsActivityUploadOpen(false)} 
+          meals={meals}
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}

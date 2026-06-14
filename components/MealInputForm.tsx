@@ -24,6 +24,22 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const [date, setDate] = useState(editTarget?.date || selectedDate);
   const [time, setTime] = useState(editTarget?.time ? formatTime(editTarget.time) : getKSTTime());
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
+  const [isTimeManual, setIsTimeManual] = useState(false);
+
+  useEffect(() => {
+    if (editTarget) return; // Do not touch times when editing an existing record
+    if (isTimeManual) return; // Do not overwrite user-customized time
+
+    if (type !== MealType.SNACK) {
+      const existing = meals.find(m => m.date === date && m.type === type && m.status !== MealStatus.CANCELED);
+      if (existing && existing.time) {
+        setTime(formatTime(existing.time));
+        return;
+      }
+    }
+    // Fallback/Default if no existing record or type is SNACK
+    setTime(getKSTTime());
+  }, [date, type, meals, editTarget, isTimeManual]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const initialIngredient = useMemo(() => {
@@ -287,7 +303,10 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                 <input 
                   type="time" 
                   value={time} 
-                  onChange={e => setTime(e.target.value)} 
+                  onChange={e => {
+                    setTime(e.target.value);
+                    setIsTimeManual(true);
+                  }} 
                   className="w-full pt-4 pb-2 px-3 rounded-xl border-none ring-1 ring-gray-200 bg-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
                 />
               </div>

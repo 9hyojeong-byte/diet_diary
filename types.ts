@@ -79,6 +79,8 @@ export interface ActivityLog {
   steps: number;
   active_calories: number;
   total_calories: number;
+  tef?: number;
+  tdee?: number;
   image_url?: string;
   created_at?: string;
   pending?: boolean;

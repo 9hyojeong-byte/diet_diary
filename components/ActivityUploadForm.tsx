@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { ActivityLog } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { ActivityLog, MealRecord, MealStatus } from '../types';
 import { analyzeActivityImage } from '../services/geminiService';
 import { generateUUID } from '../utils';
 
@@ -11,18 +11,71 @@ interface Props {
   onSave: (activity: ActivityLog) => void;
   onDelete: (date: string) => void;
   onCancel: () => void;
+  meals: MealRecord[];
 }
 
-const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActivity, onSave, onDelete, onCancel }) => {
+const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActivity, onSave, onDelete, onCancel, meals }) => {
   const [date, setDate] = useState(initialDate);
   const [steps, setSteps] = useState(existingActivity?.steps.toString() || '');
   const [activeCals, setActiveCals] = useState(existingActivity?.active_calories.toString() || '');
   const [totalCals, setTotalCals] = useState(existingActivity?.total_calories.toString() || '');
   const [imageUrl, setImageUrl] = useState<string | null>(existingActivity?.image_url || null);
+  
+  const [tef, setTef] = useState<number | null>(existingActivity?.tef ? Number(existingActivity.tef) : null);
+  const [tdee, setTdee] = useState<number | null>(existingActivity?.tdee ? Number(existingActivity.tdee) : null);
+  const [showTdeeCalc, setShowTdeeCalc] = useState<boolean>(!!existingActivity?.tdee);
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get KST Today's string representation
+  const getTodayKST = (): string => {
+    const now = new Date();
+    const kstDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const year = kstDate.getFullYear();
+    const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+    const day = String(kstDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Remaining hours helper
+  const getRemainingHours = (selectedDateStr: string): number => {
+    const todayStr = getTodayKST();
+    if (selectedDateStr < todayStr) return 0;
+    if (selectedDateStr > todayStr) return 24;
+
+    const now = new Date();
+    const kstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const hour = kstNow.getHours();
+    const min = kstNow.getMinutes();
+    const sec = kstNow.getSeconds();
+    
+    return Math.max(0, Math.min(24, 24 - (hour + min / 60 + sec / 3600)));
+  };
+
+  const handleCalculateTdee = () => {
+    // 1. Calculate TEF (Thermic Effect of Food) - 10% of ingested calories for selection date
+    const dailyMeals = meals.filter(m => String(m.date).startsWith(date) && m.status === MealStatus.ACTUAL);
+    const totalIntake = dailyMeals.reduce((sum, m) => sum + (Number(m.kcal) || 0), 0);
+    const calculatedTef = Math.round(totalIntake * 0.1);
+
+    // 2. TDEE = totalCals + TEF (since wearable total includes BMR and active activity, adding TEF calculates true TDEE)
+    const totalCalsNum = parseFloat(totalCals) || 0;
+    const calculatedTdee = Math.round(totalCalsNum + calculatedTef);
+
+    setTef(calculatedTef);
+    setTdee(calculatedTdee);
+    setShowTdeeCalc(true);
+  };
+
+  // Recalculate TDEE on the fly if inputs change while TDEE is already calculated
+  useEffect(() => {
+    if (showTdeeCalc) {
+      handleCalculateTdee();
+    }
+  }, [date, totalCals, meals]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +114,10 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
         steps: parseInt(steps) || 0,
         active_calories: parseInt(activeCals) || 0,
         total_calories: parseInt(totalCals) || 0,
-        created_at: new Date().toISOString()
+        tef: tef !== null ? tef : undefined,
+        tdee: tdee !== null ? tdee : undefined,
+        image_url: imageUrl || undefined,
+        created_at: existingActivity?.created_at || new Date().toISOString()
       });
     } finally {
       setIsSaving(false);
@@ -132,6 +188,75 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                 />
               </div>
             </div>
+          </div>
+
+          {/* TDEE 계산기 */}
+          <div className="pt-2">
+            {!showTdeeCalc ? (
+              <button
+                type="button"
+                onClick={handleCalculateTdee}
+                disabled={!totalCals}
+                className="w-full py-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center space-x-1 border border-indigo-100 active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <span>🔥</span>
+                <span>TDEE 계산하기</span>
+              </button>
+            ) : (
+              <div className="bg-gradient-to-br from-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-xl border border-indigo-800/50 relative overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="absolute top-0 right-0 p-3 opacity-10 text-6xl select-none">⚡</div>
+                
+                <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+                  <h4 className="text-xs font-black flex items-center space-x-1.5 text-indigo-200 uppercase tracking-widest">
+                    <span>📊</span>
+                    <span>TDEE 분석 결과</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleCalculateTdee}
+                    className="text-[10px] font-bold text-indigo-300 hover:text-white transition-colors bg-white/10 px-2 py-1 rounded-lg"
+                  >
+                    새로고침 🔄
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs mb-4">
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-medium">기초대사량</span>
+                    <span className="font-extrabold text-white">1,560 kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-medium">활동칼로리</span>
+                    <span className="font-extrabold text-emerald-400">{Number(activeCals || 0).toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-medium">총 소모량</span>
+                    <span className="font-extrabold text-indigo-300">{Number(totalCals || 0).toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-medium">TEF (식사 효과)</span>
+                    <span className="font-extrabold text-orange-400">{tef?.toLocaleString()} kcal</span>
+                  </div>
+                </div>
+                
+                <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-350 flex items-center space-x-1">
+                      <span>💡</span>
+                      <span>웨어러블 + TEF 계산법</span>
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-medium leading-normal">
+                    웨어러블 기기에서 기초대사량(1,560kcal)과 일일 활동량이 이미 합산된 <strong>총 소모량</strong>을 집계하므로, 여기에 스마트 워치가 측정하지 못하는 <strong>식사 유도성 열생산(TEF, 섭취 칼로리의 10%)</strong>을 합산하여 최종 하루 총 에너지 소비량(TDEE)을 산출합니다.
+                  </p>
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
+                  <span className="text-xs font-black text-slate-300">🔥 예측 TDEE (하루 총 대사량)</span>
+                  <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

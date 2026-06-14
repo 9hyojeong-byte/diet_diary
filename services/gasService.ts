@@ -2,7 +2,7 @@
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
 import { generateUUID } from '../utils';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbypkP5m0Jg-C3l6BfXIcxBJ_bafHtd61-zrSIFc6pm-IT49E2SW877TDY8hg5vQtRcW/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzSsE8SWszwwOGYIQxoajZYlL_LkhSU4bQEWFDvacT07LVQ2T17xNLPVXbFtvwhFa9p/exec';
 
 export async function fetchInitialData(): Promise<{ 
   meals: MealRecord[], 
@@ -132,7 +132,9 @@ export async function fetchInitialData(): Promise<{
         date: toKSTDate(a.date),
         steps: Number(a.steps) || 0,
         active_calories: Number(a.active_calories) || 0,
-        total_calories: Number(a.total_calories) || 0
+        total_calories: Number(a.total_calories) || 0,
+        tef: a.tef !== undefined && a.tef !== "" ? Number(a.tef) : undefined,
+        tdee: a.tdee !== undefined && a.tdee !== "" ? Number(a.tdee) : undefined
       }));
 
     const sanitizedRecommendations = (dataObj.recommendations || [])
