@@ -242,6 +242,9 @@ const App: React.FC = () => {
     }
   });
   const [isBackgroundSyncing, setIsBackgroundSyncing] = useState<boolean>(false);
+  const [syncEmoji, setSyncEmoji] = useState<string>('🥗');
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchDelta, setTouchDelta] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -318,6 +321,83 @@ const App: React.FC = () => {
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
+  const syncDataWithGAS = useCallback(async (showToastMessage = false) => {
+    setIsBackgroundSyncing(true);
+    try {
+      const data = await fetchInitialData();
+      let hasChanges = false;
+
+      const currentMealsStr = safeLocalStorage.getItem('cached_meals') || '[]';
+      const fetchedMealsStr = JSON.stringify(data.meals || []);
+      if (fetchedMealsStr !== currentMealsStr) {
+        setMeals(data.meals || []);
+        hasChanges = true;
+      }
+
+      const currentIngredientsStr = safeLocalStorage.getItem('cached_ingredients') || '[]';
+      const fetchedIngredientsStr = JSON.stringify(data.ingredients || []);
+      if (fetchedIngredientsStr !== currentIngredientsStr) {
+        setIngredients(data.ingredients || []);
+        hasChanges = true;
+      }
+
+      const currentDiariesStr = safeLocalStorage.getItem('cached_diaries') || '[]';
+      const fetchedDiariesStr = JSON.stringify(data.diaries || []);
+      if (fetchedDiariesStr !== currentDiariesStr) {
+        setDiaries(data.diaries || []);
+        hasChanges = true;
+      }
+
+      const currentActivitiesStr = safeLocalStorage.getItem('cached_activities') || '[]';
+      const fetchedActivitiesStr = JSON.stringify(data.activities || []);
+      if (fetchedActivitiesStr !== currentActivitiesStr) {
+        setActivities(data.activities || []);
+        hasChanges = true;
+      }
+
+      const currentRecommendationsStr = safeLocalStorage.getItem('cached_recommendations') || '[]';
+      const fetchedRecommendationsStr = JSON.stringify(data.recommendations || []);
+      if (fetchedRecommendationsStr !== currentRecommendationsStr) {
+        setRecommendations(data.recommendations || []);
+        hasChanges = true;
+      }
+
+      const newNtMap: Record<string, NutrientTargets> = {};
+      (data.nutrientTargets || []).forEach(nt => {
+        if (nt && nt.date) {
+          newNtMap[nt.date] = { 
+            kcal: Number(nt.kcal) || 1600, 
+            carbs: Number(nt.carbs) || 200, 
+            protein: Number(nt.protein) || 120, 
+            fat: Number(nt.fat) || 35 
+          };
+        }
+      });
+
+      const currentNutrientTargetsStr = safeLocalStorage.getItem('nutrientTargetsMap') || '{}';
+      const fetchedNutrientTargetsStr = JSON.stringify(newNtMap);
+      if (fetchedNutrientTargetsStr !== currentNutrientTargetsStr) {
+        setNutrientTargetsMap(prev => ({ ...prev, ...newNtMap }));
+        hasChanges = true;
+      }
+
+      if (showToastMessage) {
+        showToast("최신 정보가 업데이트되었습니다 ✨");
+      } else {
+        const hadCache = currentMealsStr !== '[]' || currentIngredientsStr !== '[]';
+        if (hasChanges && hadCache) {
+          showToast("최신 정보가 업데이트되었습니다 ✨");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load data from GAS", error);
+      showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
+    } finally {
+      setIsInitialLoad(false);
+      setIsBackgroundSyncing(false);
+    }
+  }, []);
+
   const onUpdateNutrientTargets = async (newTargets: NutrientTargets) => {
     const newMap = { ...nutrientTargetsMap, [selectedDate]: newTargets };
     setNutrientTargetsMap(newMap);
@@ -326,9 +406,39 @@ const App: React.FC = () => {
     try {
       await saveNutrientTargetsToGAS({ ...newTargets, date: selectedDate });
       showToast(`${selectedDate} 목표 영양분이 수정되었습니다. ✨`);
+      // Update from DB to sync changes
+      await syncDataWithGAS(false);
     } catch (error) {
       console.error("Failed to save nutrient targets to GAS", error);
       showToast("로컬에 저장되었습니다. 서버 저장 실패 😅");
+    }
+  };
+
+  // Touch handlers for Pull to Refresh
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setTouchStart(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStart !== null) {
+      const currentY = e.touches[0].clientY;
+      const delta = currentY - touchStart;
+      if (delta > 0) {
+        setTouchDelta(Math.min(delta / 2, 80));
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (touchStart !== null) {
+      if (touchDelta >= 50 && !isBackgroundSyncing) {
+        showToast("🔄 데이터 동기화 시작...");
+        await syncDataWithGAS(true);
+      }
+      setTouchStart(null);
+      setTouchDelta(0);
     }
   };
 
@@ -354,80 +464,17 @@ const App: React.FC = () => {
   }, [isSidebarOpen, isInputOpen, isDiaryOpen, isActivityUploadOpen, adviceModalOpen, isAdminLoginOpen]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setIsBackgroundSyncing(true);
-      try {
-        const data = await fetchInitialData();
-        let hasChanges = false;
-
-        const currentMealsStr = safeLocalStorage.getItem('cached_meals') || '[]';
-        const fetchedMealsStr = JSON.stringify(data.meals || []);
-        if (fetchedMealsStr !== currentMealsStr) {
-          setMeals(data.meals || []);
-          hasChanges = true;
-        }
-
-        const currentIngredientsStr = safeLocalStorage.getItem('cached_ingredients') || '[]';
-        const fetchedIngredientsStr = JSON.stringify(data.ingredients || []);
-        if (fetchedIngredientsStr !== currentIngredientsStr) {
-          setIngredients(data.ingredients || []);
-          hasChanges = true;
-        }
-
-        const currentDiariesStr = safeLocalStorage.getItem('cached_diaries') || '[]';
-        const fetchedDiariesStr = JSON.stringify(data.diaries || []);
-        if (fetchedDiariesStr !== currentDiariesStr) {
-          setDiaries(data.diaries || []);
-          hasChanges = true;
-        }
-
-        const currentActivitiesStr = safeLocalStorage.getItem('cached_activities') || '[]';
-        const fetchedActivitiesStr = JSON.stringify(data.activities || []);
-        if (fetchedActivitiesStr !== currentActivitiesStr) {
-          setActivities(data.activities || []);
-          hasChanges = true;
-        }
-
-        const currentRecommendationsStr = safeLocalStorage.getItem('cached_recommendations') || '[]';
-        const fetchedRecommendationsStr = JSON.stringify(data.recommendations || []);
-        if (fetchedRecommendationsStr !== currentRecommendationsStr) {
-          setRecommendations(data.recommendations || []);
-          hasChanges = true;
-        }
-
-        const newNtMap: Record<string, NutrientTargets> = {};
-        (data.nutrientTargets || []).forEach(nt => {
-          if (nt && nt.date) {
-            newNtMap[nt.date] = { 
-              kcal: Number(nt.kcal) || 1600, 
-              carbs: Number(nt.carbs) || 200, 
-              protein: Number(nt.protein) || 120, 
-              fat: Number(nt.fat) || 35 
-            };
-          }
-        });
-
-        const currentNutrientTargetsStr = safeLocalStorage.getItem('nutrientTargetsMap') || '{}';
-        const fetchedNutrientTargetsStr = JSON.stringify(newNtMap);
-        if (fetchedNutrientTargetsStr !== currentNutrientTargetsStr) {
-          setNutrientTargetsMap(prev => ({ ...prev, ...newNtMap }));
-          hasChanges = true;
-        }
-
-        const hadCache = currentMealsStr !== '[]' || currentIngredientsStr !== '[]';
-        if (hasChanges && hadCache) {
-          showToast("최신 정보가 업데이트되었습니다 ✨");
-        }
-      } catch (error) {
-        console.error("Failed to load data in background", error);
-        showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
-      } finally {
-        setIsInitialLoad(false);
-        setIsBackgroundSyncing(false);
-      }
-    };
-    loadData();
+    // 앱 처음 진입 시에는 구글 스프레드시트 서버 조회(동기화)를 즉시 타지 않고 로컬 캐시로 신속히 로드합니다.
+    setIsInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    if (isBackgroundSyncing) {
+      const foodEmojis = ['🥗', '🍎', '🥑', '🥩', '🍙', '🍣', '🍤', '🍕', '🍰', '🍪', '🥨', '🥛', '🍇', '🍌', '🍳', '🍜', '🍔', '🌯', '🥖', '🥝', '🍉', '🍍', '🍒', '🍯', '🍒', '🍑', '🍋', '🥞', '🧇', '🧀', '🍗', '🍟', '🌮', '🍩', '🍦'];
+      const randomEmoji = foodEmojis[Math.floor(Math.random() * foodEmojis.length)];
+      setSyncEmoji(randomEmoji);
+    }
+  }, [isBackgroundSyncing]);
 
   useEffect(() => {
     if (!isAdmin && currentView === 'memos') {
@@ -478,13 +525,14 @@ const App: React.FC = () => {
       const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
       if (!success) throw new Error("Server storage failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
+      await syncDataWithGAS(false);
     } catch (error) {
       setMeals(prevMeals);
       setIngredients(prevIngredients);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, ingredients, isAdmin]);
-
+  }, [meals, ingredients, isAdmin, syncDataWithGAS]);
+ 
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
@@ -497,19 +545,20 @@ const App: React.FC = () => {
     
     const newTime = isToActual ? getKSTTime() : (isToPlanned ? '23:59' : target.time);
     const newDate = target.date; // 날짜는 기존 상태 그대로 유지
-
+ 
     const updatedMeal: MealRecord = { ...target, status, time: newTime, date: newDate, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
       const success = await updateMealInGAS(updatedMeal);
       if (!success) throw new Error("Update failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
+      await syncDataWithGAS(false);
     } catch (err) {
       setMeals(prevMeals);
       showToast("상태 변경에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, isAdmin]);
-
+  }, [meals, isAdmin, syncDataWithGAS]);
+ 
   const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
@@ -520,6 +569,7 @@ const App: React.FC = () => {
       const success = await deleteMealFromGAS(uuid);
       if (success) {
         showToast("식단이 성공적으로 삭제되었습니다. ✨");
+        await syncDataWithGAS(false);
         return true;
       } else throw new Error("Delete failed");
     } catch (err) {
@@ -527,7 +577,7 @@ const App: React.FC = () => {
       showToast("삭제에 실패했습니다. 다시 시도해 주세요.");
       return false;
     }
-  }, [meals, isAdmin]);
+  }, [meals, isAdmin, syncDataWithGAS]);
 
   const getIngredientDisplayName = useCallback((meal: MealRecord) => {
     const targetUuid = String(meal.ingredient_uuid || '').trim();
@@ -639,6 +689,7 @@ const App: React.FC = () => {
       if (success) {
         setDiaries(prev => prev.map(d => d.uuid === newDiary.uuid ? { ...newDiary, pending: false } : d));
         showToast(isEdit ? "건강 일기가 수정되었습니다! ✨" : "건강 일기가 저장되었습니다! ✨");
+        await syncDataWithGAS(false);
       } else {
         throw new Error("Diary persistent operation returned false");
       }
@@ -646,8 +697,8 @@ const App: React.FC = () => {
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");
     }
-  }, [selectedDate, currentDiary, diaries, isAdmin]);
-
+  }, [selectedDate, currentDiary, diaries, isAdmin, syncDataWithGAS]);
+ 
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
@@ -663,13 +714,14 @@ const App: React.FC = () => {
       if (success) {
         setActivities(prev => prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: false } : a));
         showToast(isUpdate ? "활동 기록이 수정되었습니다! 💪" : "활동 기록이 저장되었습니다! 💪");
+        await syncDataWithGAS(false);
       } else throw new Error("Activity storage failed");
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 저장에 실패했습니다.");
     }
-  }, [activities, isAdmin]);
-
+  }, [activities, isAdmin, syncDataWithGAS]);
+ 
   const onDeleteActivity = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
@@ -679,12 +731,13 @@ const App: React.FC = () => {
       const success = await deleteActivityFromGAS(uuid);
       if (!success) throw new Error("Activity deletion failed");
       showToast("활동 기록이 삭제되었습니다.");
+      await syncDataWithGAS(false);
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 삭제에 실패했습니다.");
     }
-  }, [activities, isAdmin]);
-
+  }, [activities, isAdmin, syncDataWithGAS]);
+ 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
@@ -695,11 +748,12 @@ const App: React.FC = () => {
     try { 
       const success = await updateIngredientBookmark(uuid, next); 
       if (!success) throw new Error("Bookmark failed");
+      await syncDataWithGAS(false);
     } catch (err) { 
       setIngredients(prevIngredients); 
       showToast("즐겨찾기 상태 변경에 실패했습니다.");
     }
-  }, [ingredients, isAdmin]);
+  }, [ingredients, isAdmin, syncDataWithGAS]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); safeLocalStorage.setItem('isAdmin', 'true'); } };
   const handleLogout = () => { 
@@ -742,10 +796,55 @@ const App: React.FC = () => {
   }, [recommendations, selectedDate]);
 
   return (
-    <div className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}>
+    <div 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}
+    >
+      {/* Pull to Refresh Indicator */}
+      {touchDelta > 0 && (
+        <div 
+          className="w-full flex justify-center items-center overflow-hidden transition-all duration-75 text-indigo-600 bg-white border-b border-slate-100 sticky top-0 z-[110]"
+          style={{ height: `${touchDelta}px` }}
+        >
+          <div className="flex items-center space-x-2 text-xs font-black">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className={`h-4 w-4 transition-transform duration-200 ${touchDelta >= 50 ? 'rotate-180' : ''}`}
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            <span>{touchDelta >= 50 ? '놓아서 새로고침' : '당겨서 새로고침'}</span>
+          </div>
+        </div>
+      )}
+
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           {toastMessage}
+        </div>
+      )}
+
+      {/* Full-screen Sync Dim Overlay with Spinner */}
+      {isBackgroundSyncing && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-[250] animate-in fade-in duration-200">
+          <div className="bg-slate-950/95 text-white px-6 py-5 rounded-3xl flex flex-col items-center space-y-4 max-w-[280px] text-center shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
+            <div className="relative flex items-center justify-center w-[72px] h-[72px]">
+              {/* Spinner tail */}
+              <div className="absolute w-[72px] h-[72px] border-4 border-indigo-500/20 rounded-full"></div>
+              {/* Rotating spinner head */}
+              <div className="w-[72px] h-[72px] border-4 border-indigo-500 border-t-transparent border-r-transparent rounded-full animate-spin"></div>
+              <span className="absolute text-4xl animate-bounce leading-none" style={{ animationDuration: '0.8s' }}>{syncEmoji}</span>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-black tracking-tight text-white/95">데이터를 동기화하고 있습니다</p>
+              <p className="text-[10px] text-slate-400 font-bold leading-normal">구글 스프레드시트(DB)와 실시간 동기화 중...</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -765,18 +864,18 @@ const App: React.FC = () => {
                currentView === 'memos' ? '메모 목록' : 
                currentView === 'activity' ? '활동량 기록' : '나의 통계'}
             </span>
-            {isBackgroundSyncing && (
-              <span className="ml-2 px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-full text-[10px] font-black flex items-center space-x-1 animate-pulse" title="최신 데이터 동기화 중...">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-                </span>
-                <span>동기화 중</span>
-              </span>
-            )}
           </h1>
         </div>
-        {isAdmin && <button onClick={handleLogout} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1 transition-all active:scale-95 group"><div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse group-hover:bg-red-400"></div><span className="text-[10px] font-black tracking-widest group-hover:text-red-100">ADMIN</span></button>}
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => syncDataWithGAS(true)} 
+            disabled={isBackgroundSyncing}
+            className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80`}
+            title="구글 스프레드시트와 데이터 동기화"
+          >
+            <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
+          </button>
+        </div>
       </header>
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
@@ -786,22 +885,6 @@ const App: React.FC = () => {
           <DashboardSkeleton />
         ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {isBackgroundSyncing && (
-              <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 border border-indigo-100 text-indigo-700 px-4 py-3.5 rounded-[24px] flex items-center space-x-3 shadow-inner animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="relative flex h-5 w-5 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-indigo-600 flex items-center justify-center text-xs text-white">🔄</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-black tracking-tight leading-none text-indigo-900">최신 데이터 동기화 중...</p>
-                  <p className="text-[10px] text-indigo-500 font-bold mt-0.5">구글 스프레드시트(DB)에서 최신 식단 및 활동 기록을 안전하게 가져오고 있습니다.</p>
-                </div>
-                <div className="flex items-center space-x-1 bg-indigo-100 text-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-xl shrink-0">
-                  <span className="w-1 h-1 rounded-full bg-indigo-600 animate-bounce"></span>
-                  <span>로딩 중</span>
-                </div>
-              </div>
-            )}
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
             <DailySummaryView 
               summary={summary} 
@@ -845,7 +928,30 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : currentView === 'ingredients' ? (
-          <IngredientManagement ingredients={ingredients} isAdmin={isAdmin} onToggleBookmark={handleToggleBookmark} onAddIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => [...p, ing]); saveIngredientToGAS(ing); }} onUpdateIngredient={ing => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i)); updateIngredientInGAS(ing); }} onDeleteIngredient={id => { if (!isAdmin) { alert(TRIAL_MESSAGE); return; } setIngredients(p => p.filter(i => i.uuid !== id)); deleteIngredientFromGAS(id); }} trialMessage={TRIAL_MESSAGE} />
+          <IngredientManagement 
+            ingredients={ingredients} 
+            isAdmin={isAdmin} 
+            onToggleBookmark={handleToggleBookmark} 
+            onAddIngredient={async (ing) => { 
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
+              setIngredients(p => [...p, ing]); 
+              const success = await saveIngredientToGAS(ing); 
+              if (success) await syncDataWithGAS(false);
+            }} 
+            onUpdateIngredient={async (ing) => { 
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
+              setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i)); 
+              const success = await updateIngredientInGAS(ing); 
+              if (success) await syncDataWithGAS(false);
+            }} 
+            onDeleteIngredient={async (id) => { 
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
+              setIngredients(p => p.filter(i => i.uuid !== id)); 
+              const success = await deleteIngredientFromGAS(id); 
+              if (success) await syncDataWithGAS(false);
+            }} 
+            trialMessage={TRIAL_MESSAGE} 
+          />
         ) : currentView === 'memos' ? (
           <MemoList isAdmin={isAdmin} trialMessage={TRIAL_MESSAGE} />
         ) : currentView === 'activity' ? (

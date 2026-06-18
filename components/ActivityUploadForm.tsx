@@ -61,9 +61,13 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     const totalIntake = dailyMeals.reduce((sum, m) => sum + (Number(m.kcal) || 0), 0);
     const calculatedTef = Math.round(totalIntake * 0.1);
 
-    // 2. TDEE = totalCals + TEF (since wearable total includes BMR and active activity, adding TEF calculates true TDEE)
+    // 2. Calculate remaining hours and remaining BMR
+    const remainingHours = getRemainingHours(date);
+    const remainingBmr = Math.round(1560 * (remainingHours / 24));
+
+    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 + 남은 시간 추가 소모량
     const totalCalsNum = parseFloat(totalCals) || 0;
-    const calculatedTdee = Math.round(totalCalsNum + calculatedTef);
+    const calculatedTdee = Math.round(totalCalsNum + remainingBmr);
 
     setTef(calculatedTef);
     setTdee(calculatedTdee);
@@ -230,29 +234,33 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                     <span className="font-extrabold text-emerald-400">{Number(activeCals || 0).toLocaleString()} kcal</span>
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
-                    <span className="font-medium">총 소모량</span>
+                    <span className="font-medium">현재 총 소모량</span>
                     <span className="font-extrabold text-indigo-300">{Number(totalCals || 0).toLocaleString()} kcal</span>
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
-                    <span className="font-medium">TEF (식사 효과)</span>
-                    <span className="font-extrabold text-orange-400">{tef?.toLocaleString()} kcal</span>
+                    <span className="font-medium">남은 추가소모</span>
+                    <span className="font-bold text-sky-450">+{Math.round(1560 * (getRemainingHours(date) / 24)).toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center col-span-2 border-t border-white/5 pt-2 mt-1 text-[11px] text-slate-300">
+                    <span className="font-medium text-slate-400">식사 효과 (TEF)</span>
+                    <span className="font-bold text-orange-400">{tef?.toLocaleString()} kcal</span>
                   </div>
                 </div>
                 
                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-350 flex items-center space-x-1">
-                      <span>💡</span>
-                      <span>웨어러블 + TEF 계산법</span>
+                      <span>🕒</span>
+                      <span>남은 시간 추가 소모 계산법 ({getRemainingHours(date).toFixed(1)}시간)</span>
                     </span>
                   </div>
                   <p className="text-[9px] text-slate-400 font-medium leading-normal">
-                    웨어러블 기기에서 기초대사량(1,560kcal)과 일일 활동량이 이미 합산된 <strong>총 소모량</strong>을 집계하므로, 여기에 스마트 워치가 측정하지 못하는 <strong>식사 유도성 열생산(TEF, 섭취 칼로리의 10%)</strong>을 합산하여 최종 하루 총 에너지 소비량(TDEE)을 산출합니다.
+                    자정까지 남은 {getRemainingHours(date).toFixed(1)}시간 동안 추가로 소비될 기초대사량(1,560 kcal × 비율)인 <strong>{Math.round(1560 * (getRemainingHours(date) / 24)).toLocaleString()} kcal</strong>를 더하였습니다.
                   </p>
                 </div>
                 
                 <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-xs font-black text-slate-300">🔥 예측 TDEE (하루 총 대사량)</span>
+                  <span className="text-xs font-black text-slate-300">🔥 최종 예상 소모량 (TDEE)</span>
                   <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
                 </div>
               </div>
