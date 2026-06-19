@@ -241,7 +241,8 @@ const App: React.FC = () => {
       return true;
     }
   });
-  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState<boolean>(false);
+  const [syncMode, setSyncMode] = useState<'none' | 'manual' | 'quiet'>('none');
+  const isBackgroundSyncing = syncMode !== 'none';
   const [syncEmoji, setSyncEmoji] = useState<string>('🥗');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchDelta, setTouchDelta] = useState<number>(0);
@@ -321,8 +322,8 @@ const App: React.FC = () => {
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
-  const syncDataWithGAS = useCallback(async (showToastMessage = false) => {
-    setIsBackgroundSyncing(true);
+  const syncDataWithGAS = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' = 'quiet') => {
+    setSyncMode(mode);
     try {
       const data = await fetchInitialData();
       let hasChanges = false;
@@ -394,7 +395,7 @@ const App: React.FC = () => {
       showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
     } finally {
       setIsInitialLoad(false);
-      setIsBackgroundSyncing(false);
+      setSyncMode('none');
     }
   }, []);
 
@@ -435,7 +436,7 @@ const App: React.FC = () => {
     if (touchStart !== null) {
       if (touchDelta >= 50 && !isBackgroundSyncing) {
         showToast("🔄 데이터 동기화 시작...");
-        await syncDataWithGAS(true);
+        await syncDataWithGAS(true, 'manual');
       }
       setTouchStart(null);
       setTouchDelta(0);
@@ -830,7 +831,7 @@ const App: React.FC = () => {
       )}
 
       {/* Full-screen Sync Dim Overlay with Spinner */}
-      {isBackgroundSyncing && (
+      {syncMode === 'manual' && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-[250] animate-in fade-in duration-200">
           <div className="bg-slate-950/95 text-white px-6 py-5 rounded-3xl flex flex-col items-center space-y-4 max-w-[280px] text-center shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
             <div className="relative flex items-center justify-center w-[72px] h-[72px]">
@@ -850,7 +851,13 @@ const App: React.FC = () => {
 
       {!isAdmin && <div className="bg-orange-500 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest sticky top-0 z-[60]">체험 모드로 접속 중입니다</div>}
       
-      <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
+      <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between relative`}>
+        {/* Under-header running progress bar for quiet syncs */}
+        {syncMode === 'quiet' && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-700/50 overflow-hidden">
+            <div className="h-full bg-emerald-400 w-1/3 rounded-full animate-sync-progress"></div>
+          </div>
+        )}
         <div className="flex items-center">
           {currentView === 'main' ? (
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
@@ -868,7 +875,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center space-x-2">
           <button 
-            onClick={() => syncDataWithGAS(true)} 
+            onClick={() => syncDataWithGAS(true, 'manual')} 
             disabled={isBackgroundSyncing}
             className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80`}
             title="구글 스프레드시트와 데이터 동기화"
