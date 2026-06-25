@@ -383,11 +383,11 @@ const App: React.FC = () => {
       }
 
       if (showToastMessage) {
-        showToast("최신 정보가 업데이트되었습니다 ✨");
+        // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
       } else {
         const hadCache = currentMealsStr !== '[]' || currentIngredientsStr !== '[]';
         if (hasChanges && hadCache) {
-          showToast("최신 정보가 업데이트되었습니다 ✨");
+          // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
         }
       }
     } catch (error) {
@@ -569,7 +569,6 @@ const App: React.FC = () => {
     try {
       const success = await deleteMealFromGAS(uuid);
       if (success) {
-        showToast("식단이 성공적으로 삭제되었습니다. ✨");
         await syncDataWithGAS(false);
         return true;
       } else throw new Error("Delete failed");
