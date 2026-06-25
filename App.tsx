@@ -322,7 +322,7 @@ const App: React.FC = () => {
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
-  const syncDataWithGAS = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' = 'quiet') => {
+  const syncDataWithGAS = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' | 'none' = 'none') => {
     setSyncMode(mode);
     try {
       const data = await fetchInitialData();
@@ -851,13 +851,7 @@ const App: React.FC = () => {
 
       {!isAdmin && <div className="bg-orange-500 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest sticky top-0 z-[60]">체험 모드로 접속 중입니다</div>}
       
-      <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between relative`}>
-        {/* Under-header running progress bar for quiet syncs */}
-        {syncMode === 'quiet' && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-700/50 overflow-hidden">
-            <div className="h-full bg-emerald-400 w-1/3 rounded-full animate-sync-progress"></div>
-          </div>
-        )}
+      <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
         <div className="flex items-center">
           {currentView === 'main' ? (
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
