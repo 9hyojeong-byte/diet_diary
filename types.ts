@@ -81,6 +81,7 @@ export interface ActivityLog {
   total_calories: number;
   tef?: number;
   tdee?: number;
+  tdee_with_tef?: number;
   image_url?: string;
   created_at?: string;
   pending?: boolean;

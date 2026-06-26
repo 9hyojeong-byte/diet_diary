@@ -71,9 +71,19 @@ const ActivityDetailModal: React.FC<Props> = ({ activity, onClose }) => {
                   </div>
                 )}
                 {activity.tdee !== undefined && activity.tdee !== null && (
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100">
                     <span className="text-slate-800 font-extrabold">예측 TDEE (하루 총 대사량)</span>
                     <span className="font-black text-indigo-600 text-base">{activity.tdee.toLocaleString()} kcal</span>
+                  </div>
+                )}
+                {((activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null) || (activity.tdee !== undefined && activity.tef !== undefined)) && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-800 font-extrabold text-emerald-600">🥗 TEF 포함 최종 TDEE</span>
+                    <span className="font-black text-emerald-600 text-base">
+                      {((activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null) 
+                        ? Number(activity.tdee_with_tef) 
+                        : (Number(activity.tdee || 0) + Number(activity.tef || 0))).toLocaleString()} kcal
+                    </span>
                   </div>
                 )}
               </div>

@@ -120,6 +120,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
         total_calories: parseInt(totalCals) || 0,
         tef: tef !== null ? tef : undefined,
         tdee: tdee !== null ? tdee : undefined,
+        tdee_with_tef: (tdee !== null && tef !== null) ? (tdee + tef) : undefined,
         image_url: imageUrl || undefined,
         created_at: existingActivity?.created_at || new Date().toISOString()
       });
@@ -263,6 +264,12 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                   <span className="text-xs font-black text-slate-300">🔥 최종 예상 소모량 (TDEE)</span>
                   <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
                 </div>
+                {tdee !== null && tef !== null && (
+                  <div className="mt-2 pt-2 border-t border-dashed border-white/5 flex justify-between items-center">
+                    <span className="text-xs font-black text-slate-300">🥗 TEF 포함 최종 TDEE</span>
+                    <span className="text-lg font-black text-emerald-400 animate-pulse">{(tdee + tef).toLocaleString()} kcal</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
