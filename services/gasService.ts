@@ -2,7 +2,7 @@
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord, BMRRecord } from '../types';
 import { generateUUID } from '../utils';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx3E2mP6lm_tNS9fynsZIqSSE8R8ub7wPHFSx7Y2YJaNHbn6Cw5Rc1GFqClx_76Yd0p/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwjIaJ31aSbcca6Fsl7GLvSXC1ZYZK0GChd6zAYrxml1xSKGbolkpT1Vd6Kdy-03pfB/exec';
 
 export async function fetchInitialData(): Promise<{
   meals: MealRecord[],
