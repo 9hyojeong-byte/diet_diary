@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets, BMRRecord } from './types';
+import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets, BMRRecord, Memo } from './types';
 import Calendar from './components/Calendar';
 import DailySummaryView from './components/DailySummary';
 import MealSection from './components/MealSection';
@@ -33,8 +33,12 @@ import {
   deleteActivityFromGAS,
   saveAIRecommendationToGAS,
   saveNutrientTargetsToGAS,
-  saveBMRToGAS
+  saveBMRToGAS,
+  saveMemoToGAS,
+  updateMemoInGAS,
+  deleteMemoFromGAS
 } from './services/gasService';
+import PinnedMemoModal from './components/PinnedMemoModal';
 
 import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
 
@@ -240,6 +244,16 @@ const App: React.FC = () => {
       return [];
     }
   });
+  const [memos, setMemos] = useState<Memo[]>(() => {
+    try {
+      const cached = safeLocalStorage.getItem('cached_memos');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isPinnedMemoOpen, setIsPinnedMemoOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
@@ -320,6 +334,10 @@ const App: React.FC = () => {
     safeLocalStorage.setItem('cached_bmr_history', JSON.stringify(bmrHistory));
   }, [bmrHistory]);
 
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_memos', JSON.stringify(memos));
+  }, [memos]);
+
   const getTargetForDate = useCallback((date: string): NutrientTargets => {
     if (nutrientTargetsMap[date]) return nutrientTargetsMap[date];
     
@@ -355,6 +373,67 @@ const App: React.FC = () => {
     // If none are <= date, return the oldest one
     return sorted[sorted.length - 1].bmr;
   }, [bmrHistory]);
+
+  const currentPinnedMemo = useMemo(() => {
+    const pinned = memos.filter(m => m.isPinned);
+    if (pinned.length === 0) return null;
+    return [...pinned].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+  }, [memos]);
+
+  const onSaveMemo = useCallback(async (content: string, editingMemo: Memo | null) => {
+    const now = new Date().toISOString();
+    if (editingMemo) {
+      const updatedMemo: Memo = { ...editingMemo, content, updatedAt: now };
+      setMemos(prev => prev.map(m => m.id === updatedMemo.id ? updatedMemo : m));
+      try {
+        await updateMemoInGAS(updatedMemo);
+      } catch (error) {
+        console.error("Failed to update memo in GAS", error);
+      }
+    } else {
+      const newMemo: Memo = {
+        id: generateUUID(),
+        content,
+        createdAt: now,
+        updatedAt: now,
+        isPinned: false
+      };
+      setMemos(prev => [newMemo, ...prev]);
+      try {
+        await saveMemoToGAS(newMemo);
+      } catch (error) {
+        console.error("Failed to save memo in GAS", error);
+      }
+    }
+  }, []);
+
+  const onDeleteMemo = useCallback(async (id: string) => {
+    setMemos(prev => prev.filter(m => m.id !== id));
+    try {
+      await deleteMemoFromGAS(id);
+    } catch (error) {
+      console.error("Failed to delete memo in GAS", error);
+    }
+  }, []);
+
+  const onTogglePin = useCallback(async (id: string) => {
+    let updated: Memo | null = null;
+    setMemos(prev => prev.map(m => {
+      if (m.id === id) {
+        updated = { ...m, isPinned: !m.isPinned, updatedAt: new Date().toISOString() };
+        return updated;
+      }
+      return m;
+    }));
+    
+    if (updated) {
+      try {
+        await updateMemoInGAS(updated);
+      } catch (error) {
+        console.error("Failed to update memo pin in GAS", error);
+      }
+    }
+  }, []);
 
   const onSaveBMR = async (bmrVal: number, effectiveDateVal: string): Promise<boolean> => {
     const newRecord: BMRRecord = {
@@ -437,6 +516,13 @@ const App: React.FC = () => {
       const fetchedBmrHistoryStr = JSON.stringify(data.bmrHistory || []);
       if (fetchedBmrHistoryStr !== currentBmrHistoryStr) {
         setBmrHistory(data.bmrHistory || []);
+        hasChanges = true;
+      }
+
+      const currentMemosStr = safeLocalStorage.getItem('cached_memos') || '[]';
+      const fetchedMemosStr = JSON.stringify(data.memos || []);
+      if (fetchedMemosStr !== currentMemosStr) {
+        setMemos(data.memos || []);
         hasChanges = true;
       }
 
@@ -945,6 +1031,20 @@ const App: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center space-x-2">
+          {currentView === 'main' && (
+            <button 
+              onClick={() => setIsPinnedMemoOpen(true)}
+              className="bg-white/15 hover:bg-white/25 p-2 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 flex items-center justify-center relative"
+              title="상단 고정 메모 보기"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-white" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a1 1 0 011 1v1.323l3.947 1.974A2 2 0 0116 8.082v.826a2 2 0 01-1.2 1.835L11 12.574V17a1 1 0 11-2 0v-4.426l-3.8-1.83A2 2 0 014 8.908v-.826a2 2 0 011.053-1.785L9 4.323V3a1 1 0 011-1z" />
+              </svg>
+              {currentPinnedMemo && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-400 rounded-full border border-indigo-600"></span>
+              )}
+            </button>
+          )}
           <button 
             onClick={() => syncDataWithGAS(true, 'manual')} 
             disabled={isBackgroundSyncing}
@@ -1031,7 +1131,14 @@ const App: React.FC = () => {
             trialMessage={TRIAL_MESSAGE} 
           />
         ) : currentView === 'memos' ? (
-          <MemoList isAdmin={isAdmin} trialMessage={TRIAL_MESSAGE} />
+          <MemoList 
+            isAdmin={isAdmin} 
+            trialMessage={TRIAL_MESSAGE} 
+            memos={memos}
+            onSaveMemo={onSaveMemo}
+            onDeleteMemo={onDeleteMemo}
+            onTogglePin={onTogglePin}
+          />
         ) : currentView === 'activity' ? (
           <ActivityLogView 
             activities={activities} 
@@ -1093,6 +1200,13 @@ const App: React.FC = () => {
       )}
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); safePushState({ noBackExitsApp: true }, ''); }} />}
+      {isPinnedMemoOpen && (
+        <PinnedMemoModal 
+          isOpen={isPinnedMemoOpen} 
+          onClose={() => setIsPinnedMemoOpen(false)} 
+          memo={currentPinnedMemo} 
+        />
+      )}
     </div>
   );
 };

@@ -72,7 +72,8 @@ function getAllData() {
     activities: getSheetData('activity_logs'),
     recommendations: getSheetData('AI_Recommendations'),
     nutrient_targets: getSheetData('nutrient_targets'),
-    bmr_history: getSheetData('bmr_history')
+    bmr_history: getSheetData('bmr_history'),
+    memos: getSheetData('memos')
   };
 }
 
@@ -486,21 +487,54 @@ function updateDiary(data) {
 
 // --- Memos ---
 
+function ensureMemoHeaders(sheet) {
+  const range = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  const headers = range.getValues()[0];
+  if (headers.indexOf('ispinned') === -1) {
+    const startCol = headers.length + 1;
+    sheet.getRange(1, startCol).setValue('ispinned');
+  }
+}
+
 function saveMemo(data) {
-  const sheet = getOrCreateSheet('memos', ['id', 'content', 'createdat', 'updatedat']);
-  sheet.appendRow([data.id, data.content, data.createdat, data.updatedat]);
+  const sheet = getOrCreateSheet('memos', ['id', 'content', 'createdat', 'updatedat', 'ispinned']);
+  ensureMemoHeaders(sheet);
+  
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rowData = headers.map(h => {
+    if (h === 'id') return data.id;
+    if (h === 'content') return data.content;
+    if (h === 'createdat') return data.createdat || new Date().toISOString();
+    if (h === 'updatedat') return data.updatedat || new Date().toISOString();
+    if (h === 'ispinned') return data.ispinned !== undefined ? data.ispinned : false;
+    return '';
+  });
+  
+  sheet.appendRow(rowData);
   return true;
 }
 
 function updateMemo(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('memos');
   if (!sheet) return false;
-  const rows = sheet.getDataRange().getValues();
-  const idIdx = rows[0].indexOf('id');
+  ensureMemoHeaders(sheet);
+  
+  const range = sheet.getDataRange();
+  const rows = range.getValues();
+  const headers = rows[0];
+  const idIdx = headers.indexOf('id');
+  
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][idIdx] === data.id) {
-      sheet.getRange(i + 1, 2).setValue(data.content);
-      sheet.getRange(i + 1, 4).setValue(data.updatedat);
+      const newRow = headers.map(h => {
+        if (h === 'id') return data.id;
+        if (h === 'content') return data.content;
+        if (h === 'createdat') return rows[i][headers.indexOf('createdat')];
+        if (h === 'updatedat') return data.updatedat;
+        if (h === 'ispinned') return data.ispinned !== undefined ? data.ispinned : false;
+        return rows[i][headers.indexOf(h)];
+      });
+      sheet.getRange(i + 1, 1, 1, headers.length).setValues([newRow]);
       return true;
     }
   }

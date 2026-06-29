@@ -71,6 +71,7 @@ export interface Memo {
   content: string;
   createdAt: string;
   updatedAt: string;
+  isPinned?: boolean; // Pinned status
 }
 
 export interface ActivityLog {

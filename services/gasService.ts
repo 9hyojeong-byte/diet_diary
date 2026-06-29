@@ -11,7 +11,8 @@ export async function fetchInitialData(): Promise<{
   activities: ActivityLog[],
   recommendations: AIRecommendation[],
   nutrientTargets: NutrientTargetRecord[],
-  bmrHistory: BMRRecord[]
+  bmrHistory: BMRRecord[],
+  memos: Memo[]
 }> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
@@ -165,6 +166,16 @@ export async function fetchInitialData(): Promise<{
         updatedAt: bmr.updatedAt || bmr.updated_at || new Date().toISOString()
       }));
 
+    const sanitizedMemos = (dataObj.memos || [])
+      .filter((m: any) => m !== null && m !== undefined)
+      .map((m: any) => ({
+        id: m.id || generateUUID(),
+        content: m.content || '',
+        createdAt: m.createdat || m.createdAt || new Date().toISOString(),
+        updatedAt: m.updatedat || m.updatedAt || new Date().toISOString(),
+        isPinned: String(m.ispinned || m.isPinned).toLowerCase() === 'true'
+      }));
+
     return {
       meals: sanitizedMeals,
       ingredients: sanitizedIngredients,
@@ -172,11 +183,12 @@ export async function fetchInitialData(): Promise<{
       activities: sanitizedActivities,
       recommendations: sanitizedRecommendations,
       nutrientTargets: sanitizedNutrientTargets,
-      bmrHistory: sanitizedBmrHistory
+      bmrHistory: sanitizedBmrHistory,
+      memos: sanitizedMemos
     };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [], bmrHistory: [] };
+    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [], bmrHistory: [], memos: [] };
   }
 }
 
@@ -208,7 +220,8 @@ export async function fetchMemos(offset: number = 0, limit: number = 10): Promis
       id: m.id,
       content: m.content,
       createdAt: m.createdat || m.createdAt || new Date().toISOString(),
-      updatedAt: m.updatedat || m.updatedAt || new Date().toISOString()
+      updatedAt: m.updatedat || m.updatedAt || new Date().toISOString(),
+      isPinned: String(m.ispinned || m.isPinned).toLowerCase() === 'true'
     }));
   } catch (error) {
     console.error("Failed to fetch memos from GAS", error);
@@ -220,7 +233,8 @@ export async function saveMemoToGAS(memo: Memo): Promise<boolean> {
   const payload = {
     ...memo,
     createdat: memo.createdAt,
-    updatedat: memo.updatedAt
+    updatedat: memo.updatedAt,
+    ispinned: memo.isPinned || false
   };
   return callGAS('saveMemo', payload);
 }
@@ -229,7 +243,8 @@ export async function updateMemoInGAS(memo: Memo): Promise<boolean> {
   const payload = {
     ...memo,
     createdat: memo.createdAt,
-    updatedat: memo.updatedAt
+    updatedat: memo.updatedAt,
+    ispinned: memo.isPinned || false
   };
   return callGAS('updateMemo', payload);
 }
