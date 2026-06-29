@@ -2,12 +2,12 @@
 import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
 import { generateUUID } from '../utils';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwAnPBz94xD1kYq9Pb0FFKJjRJLVy_glpXU8RsZLK6g6q14XyGgESv1GLmesdOCBsFE/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyC0NLcW3lbYUAh9GNZTIJxaWbUxZ0cvAhCLyLEwke1F5OhNavNMl2SL9cHJD44LLny/exec';
 
-export async function fetchInitialData(): Promise<{ 
-  meals: MealRecord[], 
-  ingredients: Ingredient[], 
-  diaries: HealthDiary[], 
+export async function fetchInitialData(): Promise<{
+  meals: MealRecord[],
+  ingredients: Ingredient[],
+  diaries: HealthDiary[],
   activities: ActivityLog[],
   recommendations: AIRecommendation[],
   nutrientTargets: NutrientTargetRecord[]
@@ -17,17 +17,17 @@ export async function fetchInitialData(): Promise<{
       method: 'GET',
       redirect: 'follow'
     });
-    
+
     if (!response.ok) {
       throw new Error(`GAS HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     const dataObj = (data && typeof data === 'object') ? data : {};
 
     const toKSTDate = (dateStr: string) => {
       if (!dateStr) return '';
-      
+
       // ISO 형태(UTC)일 경우 KST(+9)로 변환하여 날짜 추출
       if (typeof dateStr === 'string' && dateStr.includes('T')) {
         const d = new Date(dateStr);
@@ -60,7 +60,7 @@ export async function fetchInitialData(): Promise<{
     const toKSTTime = (timeStr: string) => {
       if (!timeStr) return '00:00';
       const s = String(timeStr);
-      
+
       // ISO (UTC) 형식 처리: T03:58:00.000Z -> KST 변환 후 시간 추출
       if (s.includes('T')) {
         const d = new Date(s);
@@ -154,10 +154,10 @@ export async function fetchInitialData(): Promise<{
         fat: Number(nt.fat) || 0
       }));
 
-    return { 
-      meals: sanitizedMeals, 
-      ingredients: sanitizedIngredients, 
-      diaries: sanitizedDiaries, 
+    return {
+      meals: sanitizedMeals,
+      ingredients: sanitizedIngredients,
+      diaries: sanitizedDiaries,
       activities: sanitizedActivities,
       recommendations: sanitizedRecommendations,
       nutrientTargets: sanitizedNutrientTargets
@@ -182,11 +182,11 @@ export async function fetchMemos(offset: number = 0, limit: number = 10): Promis
       method: 'GET',
       redirect: 'follow'
     });
-    
+
     if (!response.ok) {
       throw new Error(`GAS HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return (data.memos || []).map((m: any) => ({
       id: m.id,
@@ -323,8 +323,8 @@ async function callGAS(action: string, data: any): Promise<boolean> {
     let body: string;
     if (action === 'saveMeal' || action === 'updateMeal') {
       const mealKeys = [
-        'uuid', 'type', 'status', 'date', 'time', 
-        'ingredient_name', 'ingredient_uuid', 
+        'uuid', 'type', 'status', 'date', 'time',
+        'ingredient_name', 'ingredient_uuid',
         'amount', 'kcal', 'carbs', 'protein', 'fat', 'sugar', 'fiber'
       ];
       body = JSON.stringify({ action, data }, ['action', 'data', ...mealKeys]);

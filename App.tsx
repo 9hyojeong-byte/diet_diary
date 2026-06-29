@@ -957,6 +957,7 @@ const App: React.FC = () => {
         ) : currentView === 'activity' ? (
           <ActivityLogView 
             activities={activities} 
+            meals={meals}
             onNavigateToUpload={(date) => {
               setActivityUploadDate(date);
               setIsActivityUploadOpen(true);

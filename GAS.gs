@@ -180,6 +180,7 @@ function ensureActivityHeaders(sheet) {
   if (headers.indexOf('tef') === -1) missing.push('tef');
   if (headers.indexOf('tdee') === -1) missing.push('tdee');
   if (headers.indexOf('tdee_with_tef') === -1) missing.push('tdee_with_tef');
+  if (headers.indexOf('calorie_deficit') === -1) missing.push('calorie_deficit');
   if (missing.length > 0) {
     const startCol = headers.length + 1;
     sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
@@ -187,7 +188,7 @@ function ensureActivityHeaders(sheet) {
 }
 
 function saveActivity(data) {
-  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at', 'tef', 'tdee', 'tdee_with_tef']);
+  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at', 'tef', 'tdee', 'tdee_with_tef', 'calorie_deficit']);
   ensureActivityHeaders(sheet);
   
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -200,6 +201,7 @@ function saveActivity(data) {
     if (h === 'tef') return data.tef !== undefined ? data.tef : '';
     if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
     if (h === 'tdee_with_tef') return data.tdee_with_tef !== undefined ? data.tdee_with_tef : '';
+    if (h === 'calorie_deficit') return data.calorie_deficit !== undefined ? data.calorie_deficit : '';
     if (h === 'image_url') return data.image_url || '';
     if (h === 'created_at') return data.created_at || new Date().toISOString();
     return '';
@@ -230,6 +232,7 @@ function updateActivity(data) {
         if (h === 'tef') return data.tef !== undefined ? data.tef : '';
         if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
         if (h === 'tdee_with_tef') return data.tdee_with_tef !== undefined ? data.tdee_with_tef : '';
+        if (h === 'calorie_deficit') return data.calorie_deficit !== undefined ? data.calorie_deficit : '';
         if (h === 'image_url') return data.image_url || '';
         if (h === 'created_at') return rows[i][headers.indexOf('created_at')];
         return rows[i][headers.indexOf(h)];

@@ -1,13 +1,14 @@
 
 import React from 'react';
-import { ActivityLog } from '../types';
+import { ActivityLog, MealRecord, MealStatus } from '../types';
 
 interface Props {
   activity: ActivityLog;
+  meals: MealRecord[];
   onClose: () => void;
 }
 
-const ActivityDetailModal: React.FC<Props> = ({ activity, onClose }) => {
+const ActivityDetailModal: React.FC<Props> = ({ activity, meals, onClose }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div 
@@ -77,14 +78,35 @@ const ActivityDetailModal: React.FC<Props> = ({ activity, onClose }) => {
                   </div>
                 )}
                 {((activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null) || (activity.tdee !== undefined && activity.tef !== undefined)) && (
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-800 font-extrabold text-emerald-600">🥗 TEF 포함 최종 TDEE</span>
-                    <span className="font-black text-emerald-600 text-base">
-                      {((activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null) 
-                        ? Number(activity.tdee_with_tef) 
-                        : (Number(activity.tdee || 0) + Number(activity.tef || 0))).toLocaleString()} kcal
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100">
+                      <span className="text-slate-800 font-extrabold text-emerald-600">🥗 TEF 포함 최종 TDEE</span>
+                      <span className="font-black text-emerald-600 text-base">
+                        {((activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null) 
+                          ? Number(activity.tdee_with_tef) 
+                          : (Number(activity.tdee || 0) + Number(activity.tef || 0))).toLocaleString()} kcal
+                      </span>
+                    </div>
+                    {(() => {
+                      const tdeeWithTef = (activity.tdee_with_tef !== undefined && activity.tdee_with_tef !== null)
+                        ? Number(activity.tdee_with_tef)
+                        : (Number(activity.tdee || 0) + Number(activity.tef || 0));
+                      const intakeCalories = meals
+                        .filter(m => m.date && String(m.date).split('T')[0] === activity.date && m.status === MealStatus.ACTUAL)
+                        .reduce((acc, cur) => acc + (Number(cur.kcal) || 0), 0);
+                      const deficit = activity.calorie_deficit !== undefined && activity.calorie_deficit !== null && activity.calorie_deficit !== ''
+                        ? Number(activity.calorie_deficit)
+                        : (tdeeWithTef - intakeCalories);
+                      return (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-800 font-extrabold text-rose-600">📉 예상 결손 칼로리</span>
+                          <span className="font-black text-rose-600 text-base">
+                            {deficit.toLocaleString()} kcal
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>

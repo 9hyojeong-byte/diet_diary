@@ -112,15 +112,28 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     
     setIsSaving(true);
     try {
+      const tdeeVal = tdee !== null ? tdee : undefined;
+      const tefVal = tef !== null ? tef : undefined;
+      const tdeeWithTefVal = (tdeeVal !== undefined && tefVal !== undefined) ? (tdeeVal + tefVal) : undefined;
+      
+      let calorieDeficitVal: number | undefined = undefined;
+      if (tdeeWithTefVal !== undefined) {
+        const intakeCalories = meals
+          .filter(m => m.date && String(m.date).split('T')[0] === date && m.status === MealStatus.ACTUAL)
+          .reduce((acc, cur) => acc + (Number(cur.kcal) || 0), 0);
+        calorieDeficitVal = tdeeWithTefVal - intakeCalories;
+      }
+
       await onSave({
         uuid: existingActivity?.uuid || generateUUID(),
         date,
         steps: parseInt(steps) || 0,
         active_calories: parseInt(activeCals) || 0,
         total_calories: parseInt(totalCals) || 0,
-        tef: tef !== null ? tef : undefined,
-        tdee: tdee !== null ? tdee : undefined,
-        tdee_with_tef: (tdee !== null && tef !== null) ? (tdee + tef) : undefined,
+        tef: tefVal,
+        tdee: tdeeVal,
+        tdee_with_tef: tdeeWithTefVal,
+        calorie_deficit: calorieDeficitVal,
         image_url: imageUrl || undefined,
         created_at: existingActivity?.created_at || new Date().toISOString()
       });
@@ -265,10 +278,27 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                   <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
                 </div>
                 {tdee !== null && tef !== null && (
-                  <div className="mt-2 pt-2 border-t border-dashed border-white/5 flex justify-between items-center">
-                    <span className="text-xs font-black text-slate-300">🥗 TEF 포함 최종 TDEE</span>
-                    <span className="text-lg font-black text-emerald-400 animate-pulse">{(tdee + tef).toLocaleString()} kcal</span>
-                  </div>
+                  <>
+                    <div className="mt-2 pt-2 border-t border-dashed border-white/5 flex justify-between items-center">
+                      <span className="text-xs font-black text-slate-300">🥗 TEF 포함 최종 TDEE</span>
+                      <span className="text-lg font-black text-emerald-400 animate-pulse">{(tdee + tef).toLocaleString()} kcal</span>
+                    </div>
+                    {(() => {
+                      const tdeeWithTef = tdee + tef;
+                      const intakeCalories = meals
+                        .filter(m => m.date && String(m.date).split('T')[0] === date && m.status === MealStatus.ACTUAL)
+                        .reduce((acc, cur) => acc + (Number(cur.kcal) || 0), 0);
+                      const deficit = tdeeWithTef - intakeCalories;
+                      return (
+                        <div className="mt-2 pt-2 border-t border-dashed border-white/5 flex justify-between items-center">
+                          <span className="text-xs font-black text-rose-300">📉 예상 결손 칼로리</span>
+                          <span className="text-lg font-black text-rose-400">
+                            {deficit.toLocaleString()} kcal
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             )}

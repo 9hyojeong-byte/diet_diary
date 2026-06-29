@@ -1,15 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { ActivityLog } from '../types';
+import { ActivityLog, MealRecord } from '../types';
 import ActivityDetailModal from './ActivityDetailModal';
 import { getTodayKST, formatDateToYYYYMMDD } from '../utils';
 
 interface Props {
   activities: ActivityLog[];
+  meals: MealRecord[];
   onNavigateToUpload: (date: string) => void;
 }
 
-const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) => {
+const ActivityLogView: React.FC<Props> = ({ activities, meals, onNavigateToUpload }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedActivity, setSelectedActivity] = useState<ActivityLog | null>(null);
 
@@ -122,6 +123,7 @@ const ActivityLogView: React.FC<Props> = ({ activities, onNavigateToUpload }) =>
       {selectedActivity && (
         <ActivityDetailModal
           activity={selectedActivity}
+          meals={meals}
           onClose={() => setSelectedActivity(null)}
         />
       )}
