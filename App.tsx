@@ -417,23 +417,24 @@ const App: React.FC = () => {
   }, []);
 
   const onTogglePin = useCallback(async (id: string) => {
-    let updated: Memo | null = null;
-    setMemos(prev => prev.map(m => {
-      if (m.id === id) {
-        updated = { ...m, isPinned: !m.isPinned, updatedAt: new Date().toISOString() };
-        return updated;
-      }
-      return m;
-    }));
-    
-    if (updated) {
-      try {
-        await updateMemoInGAS(updated);
-      } catch (error) {
-        console.error("Failed to update memo pin in GAS", error);
-      }
+    const target = memos.find(m => m.id === id);
+    if (!target) return;
+
+    const updated: Memo = {
+      ...target,
+      isPinned: !target.isPinned,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Optimistically update state
+    setMemos(prev => prev.map(m => m.id === id ? updated : m));
+
+    try {
+      await updateMemoInGAS(updated);
+    } catch (error) {
+      console.error("Failed to update memo pin in GAS", error);
     }
-  }, []);
+  }, [memos]);
 
   const onSaveBMR = async (bmrVal: number, effectiveDateVal: string): Promise<boolean> => {
     const newRecord: BMRRecord = {
