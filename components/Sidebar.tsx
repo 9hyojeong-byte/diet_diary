@@ -11,9 +11,10 @@ interface SidebarProps {
   onLogout?: () => void;
   onOpenAdminLogin?: () => void;
   selectedDate?: string;
+  onOpenSettings?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout, onOpenAdminLogin, selectedDate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavigate, isAdmin, onLogout, onOpenAdminLogin, selectedDate, onOpenSettings }) => {
   const [taps, setTaps] = useState(0);
   // Browser environment might not have NodeJS namespace, using ReturnType of setTimeout instead
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,9 +100,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentView, onNavig
           <div className="pt-8 px-4 border-t mt-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Support</p>
             <div className="space-y-4">
-               <div className="text-sm text-gray-400 flex items-center space-x-2">
-                 <span>⚙️ 설정 (준비중)</span>
-               </div>
+               <button 
+                 onClick={() => { onOpenSettings?.(); onClose(); }}
+                 className="w-full text-left text-sm text-gray-600 hover:text-indigo-600 flex items-center space-x-2 font-bold transition-colors"
+               >
+                 <span>⚙️ 설정</span>
+               </button>
                {isAdmin && onLogout && (
                  <button 
                   onClick={() => { onLogout(); onClose(); }}

@@ -55,6 +55,7 @@ function doPost(e) {
     case 'deleteActivity': result = deleteActivity(data.uuid); break;
     case 'saveRecommendation': result = saveRecommendation(data); break;
     case 'saveNutrientTargets': result = saveNutrientTargets(data); break;
+    case 'saveBMR': result = saveBMR(data); break;
   }
   
   return ContentService.createTextOutput(JSON.stringify({ success: result }))
@@ -70,7 +71,8 @@ function getAllData() {
     diaries: getSheetData('diaries'),
     activities: getSheetData('activity_logs'),
     recommendations: getSheetData('AI_Recommendations'),
-    nutrient_targets: getSheetData('nutrient_targets')
+    nutrient_targets: getSheetData('nutrient_targets'),
+    bmr_history: getSheetData('bmr_history')
   };
 }
 
@@ -181,15 +183,61 @@ function ensureActivityHeaders(sheet) {
   if (headers.indexOf('tdee') === -1) missing.push('tdee');
   if (headers.indexOf('tdee_with_tef') === -1) missing.push('tdee_with_tef');
   if (headers.indexOf('calorie_deficit') === -1) missing.push('calorie_deficit');
+  if (headers.indexOf('bmr') === -1) missing.push('bmr');
   if (missing.length > 0) {
     const startCol = headers.length + 1;
     sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
   }
 }
 
+function resolveBmrFromHistory(dateStr) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('bmr_history');
+  if (!sheet) return null;
+  
+  const range = sheet.getDataRange();
+  if (range.getNumRows() <= 1) return null;
+  
+  const displayValues = range.getDisplayValues();
+  const headers = displayValues[0];
+  const bmrIdx = headers.indexOf('bmr');
+  const effDateIdx = headers.indexOf('effectiveDate');
+  const createdAtIdx = headers.indexOf('createdAt');
+  
+  const records = displayValues.slice(1).map(row => {
+    return {
+      bmr: Number(row[bmrIdx]) || 1410,
+      effectiveDate: row[effDateIdx] || '',
+      createdAt: row[createdAtIdx] || ''
+    };
+  }).filter(r => r.effectiveDate <= dateStr);
+  
+  if (records.length === 0) return null;
+  
+  records.sort((a, b) => {
+    const dateCompare = b.effectiveDate.localeCompare(a.effectiveDate);
+    if (dateCompare !== 0) return dateCompare;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+  
+  return records[0].bmr;
+}
+
 function saveActivity(data) {
-  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at', 'tef', 'tdee', 'tdee_with_tef', 'calorie_deficit']);
+  const sheet = getOrCreateSheet('activity_logs', ['uuid', 'date', 'steps', 'active_calories', 'total_calories', 'image_url', 'created_at', 'tef', 'tdee', 'tdee_with_tef', 'calorie_deficit', 'bmr']);
   ensureActivityHeaders(sheet);
+  
+  let bmrVal = data.bmr;
+  if (bmrVal !== undefined && bmrVal !== null && bmrVal !== '') {
+    bmrVal = Number(bmrVal);
+    if (isNaN(bmrVal)) {
+      return false; // Error: BMR is non-numeric
+    }
+  } else {
+    bmrVal = resolveBmrFromHistory(data.date);
+    if (bmrVal === null) {
+      return false; // Error: No matching BMR history exists
+    }
+  }
   
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const rowData = headers.map(h => {
@@ -202,6 +250,7 @@ function saveActivity(data) {
     if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
     if (h === 'tdee_with_tef') return data.tdee_with_tef !== undefined ? data.tdee_with_tef : '';
     if (h === 'calorie_deficit') return data.calorie_deficit !== undefined ? data.calorie_deficit : '';
+    if (h === 'bmr') return bmrVal;
     if (h === 'image_url') return data.image_url || '';
     if (h === 'created_at') return data.created_at || new Date().toISOString();
     return '';
@@ -215,6 +264,19 @@ function updateActivity(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('activity_logs');
   if (!sheet) return false;
   ensureActivityHeaders(sheet);
+  
+  let bmrVal = data.bmr;
+  if (bmrVal !== undefined && bmrVal !== null && bmrVal !== '') {
+    bmrVal = Number(bmrVal);
+    if (isNaN(bmrVal)) {
+      return false;
+    }
+  } else {
+    bmrVal = resolveBmrFromHistory(data.date);
+    if (bmrVal === null) {
+      return false; // Error: No matching BMR history exists
+    }
+  }
   
   const range = sheet.getDataRange();
   const rows = range.getValues();
@@ -233,6 +295,7 @@ function updateActivity(data) {
         if (h === 'tdee') return data.tdee !== undefined ? data.tdee : '';
         if (h === 'tdee_with_tef') return data.tdee_with_tef !== undefined ? data.tdee_with_tef : '';
         if (h === 'calorie_deficit') return data.calorie_deficit !== undefined ? data.calorie_deficit : '';
+        if (h === 'bmr') return bmrVal;
         if (h === 'image_url') return data.image_url || '';
         if (h === 'created_at') return rows[i][headers.indexOf('created_at')];
         return rows[i][headers.indexOf(h)];
@@ -476,3 +539,18 @@ function getDriveImages(folderId) {
     return [];
   }
 }
+
+// --- BMR History ---
+
+function saveBMR(data) {
+  const sheet = getOrCreateSheet('bmr_history', ['id', 'bmr', 'effectiveDate', 'createdAt', 'updatedAt']);
+  sheet.appendRow([
+    data.id,
+    data.bmr,
+    data.effectiveDate,
+    data.createdAt || new Date().toISOString(),
+    data.updatedAt || new Date().toISOString()
+  ]);
+  return true;
+}
+

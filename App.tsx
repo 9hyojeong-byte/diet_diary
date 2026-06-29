@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets } from './types';
+import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets, BMRRecord } from './types';
 import Calendar from './components/Calendar';
 import DailySummaryView from './components/DailySummary';
 import MealSection from './components/MealSection';
@@ -15,7 +15,8 @@ import AdminLoginModal from './components/AdminLoginModal';
 import DiaryModal from './components/DiaryModal';
 import ActivityLogView from './components/ActivityLogView';
 import ActivityUploadForm from './components/ActivityUploadForm';
-import { getTargetKcal, getTargetProtein, getTodayKST, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime } from './utils';
+import SettingsModal from './components/SettingsModal';
+import { getTargetKcal, getTargetProtein, getTodayKST, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
 import { 
   fetchInitialData, 
   saveMealToGAS, 
@@ -31,12 +32,14 @@ import {
   updateActivityInGAS,
   deleteActivityFromGAS,
   saveAIRecommendationToGAS,
-  saveNutrientTargetsToGAS
+  saveNutrientTargetsToGAS,
+  saveBMRToGAS
 } from './services/gasService';
 
 import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
+
 
 const FOOD_EMOJIS = ['🥗', '🍎', '🥑', '🍗', '🍳', '🥛', '🍣', '🍱', '🥣', '🥦', '🍌', '🥪', '🥙', '🥗'];
 
@@ -227,6 +230,17 @@ const App: React.FC = () => {
       return [];
     }
   });
+
+  const [bmrHistory, setBmrHistory] = useState<BMRRecord[]>(() => {
+    try {
+      const cached = safeLocalStorage.getItem('cached_bmr_history');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
     try {
@@ -302,6 +316,10 @@ const App: React.FC = () => {
     safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(nutrientTargetsMap));
   }, [nutrientTargetsMap]);
 
+  useEffect(() => {
+    safeLocalStorage.setItem('cached_bmr_history', JSON.stringify(bmrHistory));
+  }, [bmrHistory]);
+
   const getTargetForDate = useCallback((date: string): NutrientTargets => {
     if (nutrientTargetsMap[date]) return nutrientTargetsMap[date];
     
@@ -319,6 +337,58 @@ const App: React.FC = () => {
       fat: 35
     };
   }, [nutrientTargetsMap]);
+
+  const getBmrForDate = useCallback((date: string): number => {
+    if (bmrHistory.length === 0) return 1410; // Default fallback BMR
+    
+    // Sort descending by effectiveDate, then by createdAt
+    const sorted = [...bmrHistory].sort((a, b) => {
+      const dateCompare = b.effectiveDate.localeCompare(a.effectiveDate);
+      if (dateCompare !== 0) return dateCompare;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+    
+    // Find the record that is effective on or before the target date
+    const record = sorted.find(r => r.effectiveDate <= date);
+    if (record) return record.bmr;
+    
+    // If none are <= date, return the oldest one
+    return sorted[sorted.length - 1].bmr;
+  }, [bmrHistory]);
+
+  const onSaveBMR = async (bmrVal: number, effectiveDateVal: string): Promise<boolean> => {
+    const newRecord: BMRRecord = {
+      id: generateUUID(),
+      bmr: bmrVal,
+      effectiveDate: effectiveDateVal,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Optimistic UI update
+    setBmrHistory(prev => [...prev, newRecord]);
+
+    try {
+      const success = await saveBMRToGAS(newRecord);
+      if (success) {
+        showToast("기초대사량이 성공적으로 저장되었습니다. 💾");
+        // Pull latest to sync
+        await syncDataWithGAS(false, 'quiet');
+        return true;
+      } else {
+        // Rollback optimistic update
+        setBmrHistory(prev => prev.filter(r => r.id !== newRecord.id));
+        showToast("기초대사량 저장에 실패했습니다.");
+        return false;
+      }
+    } catch (error) {
+      console.error("Failed to save BMR", error);
+      // Rollback optimistic update
+      setBmrHistory(prev => prev.filter(r => r.id !== newRecord.id));
+      showToast("기초대사량 저장 중 오류가 발생했습니다.");
+      return false;
+    }
+  };
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
@@ -360,6 +430,13 @@ const App: React.FC = () => {
       const fetchedRecommendationsStr = JSON.stringify(data.recommendations || []);
       if (fetchedRecommendationsStr !== currentRecommendationsStr) {
         setRecommendations(data.recommendations || []);
+        hasChanges = true;
+      }
+
+      const currentBmrHistoryStr = safeLocalStorage.getItem('cached_bmr_history') || '[]';
+      const fetchedBmrHistoryStr = JSON.stringify(data.bmrHistory || []);
+      if (fetchedBmrHistoryStr !== currentBmrHistoryStr) {
+        setBmrHistory(data.bmrHistory || []);
         hasChanges = true;
       }
 
@@ -453,6 +530,7 @@ const App: React.FC = () => {
     safePushState({ noBackExitsApp: true }, '');
     const handlePopState = (event: PopStateEvent) => {
       if (isSidebarOpen) { setIsSidebarOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
+      if (isSettingsOpen) { setIsSettingsOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
       if (isInputOpen) { setIsInputOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
       if (isDiaryOpen) { setIsDiaryOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
       if (isActivityUploadOpen) { setIsActivityUploadOpen(false); safePushState({ noBackExitsApp: true }, ''); return; }
@@ -462,7 +540,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSidebarOpen, isInputOpen, isDiaryOpen, isActivityUploadOpen, adviceModalOpen, isAdminLoginOpen]);
+  }, [isSidebarOpen, isSettingsOpen, isInputOpen, isDiaryOpen, isActivityUploadOpen, adviceModalOpen, isAdminLoginOpen]);
 
   useEffect(() => {
     // 앱 처음 진입 시에는 구글 스프레드시트 서버 조회(동기화)를 즉시 타지 않고 로컬 캐시로 신속히 로드합니다.
@@ -878,7 +956,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} onOpenSettings={() => setIsSettingsOpen(true)} />
 
       <main className="p-4">
         {isInitialLoad ? (
@@ -994,9 +1072,11 @@ const App: React.FC = () => {
           onDelete={onDeleteActivity}
           onCancel={() => setIsActivityUploadOpen(false)} 
           meals={meals}
+          bmr={getBmrForDate(activityUploadDate)}
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
+      {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} bmrHistory={bmrHistory} onSaveBMR={onSaveBMR} />}
       {adviceModalOpen && (
         <AIAdviceModal 
           isOpen={adviceModalOpen} 

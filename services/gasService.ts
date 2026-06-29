@@ -1,8 +1,8 @@
 
-import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord } from '../types';
+import { MealRecord, Ingredient, MealStatus, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargets, NutrientTargetRecord, BMRRecord } from '../types';
 import { generateUUID } from '../utils';
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyC0NLcW3lbYUAh9GNZTIJxaWbUxZ0cvAhCLyLEwke1F5OhNavNMl2SL9cHJD44LLny/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx3E2mP6lm_tNS9fynsZIqSSE8R8ub7wPHFSx7Y2YJaNHbn6Cw5Rc1GFqClx_76Yd0p/exec';
 
 export async function fetchInitialData(): Promise<{
   meals: MealRecord[],
@@ -10,7 +10,8 @@ export async function fetchInitialData(): Promise<{
   diaries: HealthDiary[],
   activities: ActivityLog[],
   recommendations: AIRecommendation[],
-  nutrientTargets: NutrientTargetRecord[]
+  nutrientTargets: NutrientTargetRecord[],
+  bmrHistory: BMRRecord[]
 }> {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`, {
@@ -154,17 +155,28 @@ export async function fetchInitialData(): Promise<{
         fat: Number(nt.fat) || 0
       }));
 
+    const sanitizedBmrHistory = (dataObj.bmr_history || [])
+      .filter((bmr: any) => bmr !== null && bmr !== undefined)
+      .map((bmr: any) => ({
+        id: bmr.id || generateUUID(),
+        bmr: Number(bmr.bmr) || 1410,
+        effectiveDate: toKSTDate(bmr.effectiveDate || bmr.effective_date || bmr.date || ''),
+        createdAt: bmr.createdAt || bmr.created_at || new Date().toISOString(),
+        updatedAt: bmr.updatedAt || bmr.updated_at || new Date().toISOString()
+      }));
+
     return {
       meals: sanitizedMeals,
       ingredients: sanitizedIngredients,
       diaries: sanitizedDiaries,
       activities: sanitizedActivities,
       recommendations: sanitizedRecommendations,
-      nutrientTargets: sanitizedNutrientTargets
+      nutrientTargets: sanitizedNutrientTargets,
+      bmrHistory: sanitizedBmrHistory
     };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [] };
+    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [], bmrHistory: [] };
   }
 }
 
@@ -174,6 +186,10 @@ export async function saveAIRecommendationToGAS(recommendation: AIRecommendation
 
 export async function saveNutrientTargetsToGAS(targets: NutrientTargetRecord): Promise<boolean> {
   return callGAS('saveNutrientTargets', targets);
+}
+
+export async function saveBMRToGAS(bmrRecord: BMRRecord): Promise<boolean> {
+  return callGAS('saveBMR', bmrRecord);
 }
 
 export async function fetchMemos(offset: number = 0, limit: number = 10): Promise<Memo[]> {

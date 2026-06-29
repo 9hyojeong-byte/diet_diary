@@ -65,6 +65,12 @@ const ActivityDetailModal: React.FC<Props> = ({ activity, meals, onClose }) => {
                 <span>대사량 상세 정보</span>
               </h4>
               <div className="space-y-2.5">
+                <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100">
+                  <span className="text-slate-500 font-medium">기초대사량 (BMR)</span>
+                  <span className="font-black text-slate-800">
+                    {activity.bmr !== undefined ? `${activity.bmr.toLocaleString()} kcal` : '1,410 kcal (기본값)'}
+                  </span>
+                </div>
                 {activity.tef !== undefined && activity.tef !== null && (
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100">
                     <span className="text-slate-500 font-medium">식사 유도성 열생산 (TEF)</span>

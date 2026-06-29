@@ -83,6 +83,7 @@ export interface ActivityLog {
   tdee?: number;
   tdee_with_tef?: number;
   calorie_deficit?: number;
+  bmr?: number; // Persisted BMR value at the time of log creation
   image_url?: string;
   created_at?: string;
   pending?: boolean;
@@ -104,3 +105,12 @@ export interface NutrientTargets {
 export interface NutrientTargetRecord extends NutrientTargets {
   date: string;
 }
+
+export interface BMRRecord {
+  id: string;
+  bmr: number;
+  effectiveDate: string; // YYYY-MM-DD
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+}
+

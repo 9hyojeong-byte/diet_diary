@@ -12,22 +12,23 @@ interface Props {
   onDelete: (date: string) => void;
   onCancel: () => void;
   meals: MealRecord[];
+  bmr: number;
 }
 
-const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActivity, onSave, onDelete, onCancel, meals }) => {
+const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActivity, onSave, onDelete, onCancel, meals, bmr }) => {
   const [date, setDate] = useState(initialDate);
   const [steps, setSteps] = useState(existingActivity?.steps.toString() || '');
   const [activeCals, setActiveCals] = useState(existingActivity?.active_calories.toString() || '');
   const [totalCals, setTotalCals] = useState(existingActivity?.total_calories.toString() || '');
   const [imageUrl, setImageUrl] = useState<string | null>(existingActivity?.image_url || null);
-  
+
   const [tef, setTef] = useState<number | null>(existingActivity?.tef ? Number(existingActivity.tef) : null);
   const [tdee, setTdee] = useState<number | null>(existingActivity?.tdee ? Number(existingActivity.tdee) : null);
   const [showTdeeCalc, setShowTdeeCalc] = useState<boolean>(!!existingActivity?.tdee);
-  
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get KST Today's string representation
@@ -51,7 +52,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     const hour = kstNow.getHours();
     const min = kstNow.getMinutes();
     const sec = kstNow.getSeconds();
-    
+
     return Math.max(0, Math.min(24, 24 - (hour + min / 60 + sec / 3600)));
   };
 
@@ -63,7 +64,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
 
     // 2. Calculate remaining hours and remaining BMR
     const remainingHours = getRemainingHours(date);
-    const remainingBmr = Math.round(1560 * (remainingHours / 24));
+    const remainingBmr = Math.round(bmr * (remainingHours / 24));
 
     // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 + 남은 시간 추가 소모량
     const totalCalsNum = parseFloat(totalCals) || 0;
@@ -89,7 +90,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       setImageUrl(base64);
-      
+
       setIsAnalyzing(true);
       try {
         const result = await analyzeActivityImage(base64);
@@ -109,13 +110,13 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
 
   const handleSave = async () => {
     if (!date) return;
-    
+
     setIsSaving(true);
     try {
       const tdeeVal = tdee !== null ? tdee : undefined;
       const tefVal = tef !== null ? tef : undefined;
       const tdeeWithTefVal = (tdeeVal !== undefined && tefVal !== undefined) ? (tdeeVal + tefVal) : undefined;
-      
+
       let calorieDeficitVal: number | undefined = undefined;
       if (tdeeWithTefVal !== undefined) {
         const intakeCalories = meals
@@ -134,6 +135,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
         tdee: tdeeVal,
         tdee_with_tef: tdeeWithTefVal,
         calorie_deficit: calorieDeficitVal,
+        bmr: bmr,
         image_url: imageUrl || undefined,
         created_at: existingActivity?.created_at || new Date().toISOString()
       });
@@ -147,7 +149,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={onCancel}>
       <div className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-3xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-10 relative" onClick={e => e.stopPropagation()}>
-        <button 
+        <button
           onClick={onCancel}
           className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors z-10"
         >
@@ -164,9 +166,9 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
           <div className="space-y-1">
             <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">날짜 선택</label>
-            <input 
-              type="date" 
-              value={date} 
+            <input
+              type="date"
+              value={date}
               onChange={e => setDate(e.target.value)}
               className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
             />
@@ -176,10 +178,10 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">걸음수 (steps)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 placeholder="0"
-                value={steps} 
+                value={steps}
                 onChange={e => setSteps(e.target.value)}
                 className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-orange-500 outline-none font-black text-orange-600"
               />
@@ -187,20 +189,20 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">활동 칼로리 (kcal)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   placeholder="0"
-                  value={activeCals} 
+                  value={activeCals}
                   onChange={e => setActiveCals(e.target.value)}
                   className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-emerald-500 outline-none font-black text-emerald-600"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">총 소모량 (kcal)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   placeholder="0"
-                  value={totalCals} 
+                  value={totalCals}
                   onChange={e => setTotalCals(e.target.value)}
                   className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-indigo-600"
                 />
@@ -223,7 +225,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
             ) : (
               <div className="bg-gradient-to-br from-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-xl border border-indigo-800/50 relative overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="absolute top-0 right-0 p-3 opacity-10 text-6xl select-none">⚡</div>
-                
+
                 <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
                   <h4 className="text-xs font-black flex items-center space-x-1.5 text-indigo-200 uppercase tracking-widest">
                     <span>📊</span>
@@ -237,11 +239,11 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                     새로고침 🔄
                   </button>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs mb-4">
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">기초대사량</span>
-                    <span className="font-extrabold text-white">1,560 kcal</span>
+                    <span className="font-extrabold text-white">{bmr.toLocaleString()} kcal</span>
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">활동칼로리</span>
@@ -253,14 +255,14 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">남은 추가소모</span>
-                    <span className="font-bold text-sky-450">+{Math.round(1560 * (getRemainingHours(date) / 24)).toLocaleString()} kcal</span>
+                    <span className="font-bold text-sky-450">+{Math.round(bmr * (getRemainingHours(date) / 24)).toLocaleString()} kcal</span>
                   </div>
                   <div className="flex justify-between items-center col-span-2 border-t border-white/5 pt-2 mt-1 text-[11px] text-slate-300">
                     <span className="font-medium text-slate-400">식사 효과 (TEF)</span>
                     <span className="font-bold text-orange-400">{tef?.toLocaleString()} kcal</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-350 flex items-center space-x-1">
@@ -269,10 +271,10 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                     </span>
                   </div>
                   <p className="text-[9px] text-slate-400 font-medium leading-normal">
-                    자정까지 남은 {getRemainingHours(date).toFixed(1)}시간 동안 추가로 소비될 기초대사량(1,560 kcal × 비율)인 <strong>{Math.round(1560 * (getRemainingHours(date) / 24)).toLocaleString()} kcal</strong>를 더하였습니다.
+                    자정까지 남은 {getRemainingHours(date).toFixed(1)}시간 동안 추가로 소비될 기초대사량({bmr.toLocaleString()} kcal × 비율)인 <strong>{Math.round(bmr * (getRemainingHours(date) / 24)).toLocaleString()} kcal</strong>를 더하였습니다.
                   </p>
                 </div>
-                
+
                 <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
                   <span className="text-xs font-black text-slate-300">🔥 최종 예상 소모량 (TDEE)</span>
                   <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
@@ -305,16 +307,16 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
           </div>
 
           <div className="space-y-3">
-            <input 
-              type="file" 
-              accept="image/*" 
+            <input
+              type="file"
+              accept="image/*"
               ref={fileInputRef}
               onChange={handleImageUpload}
               className="hidden"
             />
-            
+
             {!imageUrl ? (
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
                 className="w-full py-8 rounded-2xl border-2 border-dashed bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 transition-all flex flex-col items-center justify-center space-y-2"
@@ -336,16 +338,16 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
             ) : (
               <div className="relative rounded-2xl overflow-hidden border shadow-inner bg-gray-50 mx-auto max-w-[300px] group">
                 <img src={imageUrl} alt="Preview" className="w-full h-auto block" />
-                
+
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
-                  <button 
+                  <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isAnalyzing}
                     className="px-3 py-1.5 bg-white text-indigo-600 text-xs font-black rounded-full shadow-lg active:scale-95 transition-all"
                   >
                     이미지 변경
                   </button>
-                  <button 
+                  <button
                     onClick={() => setImageUrl(null)}
                     className="p-1.5 bg-red-500 text-white rounded-full shadow-lg active:scale-95 transition-all"
                   >
@@ -367,7 +369,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
 
           <div className="flex space-x-3 pt-4">
             {existingActivity && (
-              <button 
+              <button
                 onClick={() => {
                   if (confirm('정말 이 활동 기록을 삭제하시겠습니까?')) {
                     onDelete(existingActivity.uuid);
@@ -378,13 +380,13 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                 삭제
               </button>
             )}
-            <button 
+            <button
               onClick={onCancel}
               className="flex-1 py-4 text-gray-400 font-black border-2 border-gray-100 rounded-2xl hover:bg-gray-50 transition-all"
             >
               취소
             </button>
-            <button 
+            <button
               onClick={handleSave}
               disabled={isSaving || isAnalyzing}
               className={`flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center ${isSaving ? 'opacity-70' : ''}`}
