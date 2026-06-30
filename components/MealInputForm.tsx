@@ -22,7 +22,15 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
-  const [time, setTime] = useState(editTarget?.time ? formatTime(editTarget.time) : getKSTTime());
+  const [time, setTime] = useState(() => {
+    if (editTarget) {
+      if (editTarget.status === MealStatus.PLANNED) {
+        return getKSTTime();
+      }
+      return formatTime(editTarget.time);
+    }
+    return getKSTTime();
+  });
   const [type, setType] = useState<MealType>(editTarget?.type || prefilledType || MealType.BREAKFAST);
   const [isTimeManual, setIsTimeManual] = useState(false);
 
