@@ -188,7 +188,7 @@ export async function fetchInitialData(): Promise<{
     };
   } catch (error) {
     console.error("Failed to fetch from GAS", error);
-    return { meals: [], ingredients: [], diaries: [], activities: [], recommendations: [], nutrientTargets: [], bmrHistory: [], memos: [] };
+    throw error;
   }
 }
 

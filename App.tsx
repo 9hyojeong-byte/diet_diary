@@ -41,6 +41,7 @@ import {
 import PinnedMemoModal from './components/PinnedMemoModal';
 
 import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
+import { getCachedData, setCachedData, getLastSyncedAt } from './services/cacheService';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
 
@@ -182,6 +183,18 @@ const safeLocalStorage = {
   }
 };
 
+const formatLastSynced = (isoString: string | null): string => {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return '';
+  }
+};
+
 const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(() => safeLocalStorage.getItem('isAdmin') === 'true');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
@@ -189,85 +202,22 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKST());
   
-  const [meals, setMeals] = useState<MealRecord[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_meals');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [ingredients, setIngredients] = useState<Ingredient[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_ingredients');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [diaries, setDiaries] = useState<HealthDiary[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_diaries');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [activities, setActivities] = useState<ActivityLog[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_activities');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [recommendations, setRecommendations] = useState<AIRecommendation[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_recommendations');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [bmrHistory, setBmrHistory] = useState<BMRRecord[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_bmr_history');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [memos, setMemos] = useState<Memo[]>(() => {
-    try {
-      const cached = safeLocalStorage.getItem('cached_memos');
-      const parsed = cached ? JSON.parse(cached) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const [meals, setMeals] = useState<MealRecord[]>(() => getCachedData<MealRecord[]>('cached_meals') || []);
+  const [ingredients, setIngredients] = useState<Ingredient[]>(() => getCachedData<Ingredient[]>('cached_ingredients') || []);
+  const [diaries, setDiaries] = useState<HealthDiary[]>(() => getCachedData<HealthDiary[]>('cached_diaries') || []);
+  const [activities, setActivities] = useState<ActivityLog[]>(() => getCachedData<ActivityLog[]>('cached_activities') || []);
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>(() => getCachedData<AIRecommendation[]>('cached_recommendations') || []);
+  const [bmrHistory, setBmrHistory] = useState<BMRRecord[]>(() => getCachedData<BMRRecord[]>('cached_bmr_history') || []);
+  const [memos, setMemos] = useState<Memo[]>(() => getCachedData<Memo[]>('cached_memos') || []);
   const [isPinnedMemoOpen, setIsPinnedMemoOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
-    try {
-      const cachedMeals = safeLocalStorage.getItem('cached_meals');
-      const cachedIngredients = safeLocalStorage.getItem('cached_ingredients');
-      const parsedMeals = cachedMeals ? JSON.parse(cachedMeals) : [];
-      const parsedIngredients = cachedIngredients ? JSON.parse(cachedIngredients) : [];
-      const hasCache = (Array.isArray(parsedMeals) && parsedMeals.length > 0) || 
-                       (Array.isArray(parsedIngredients) && parsedIngredients.length > 0);
-      return !hasCache;
-    } catch {
-      return true;
-    }
+    const cachedMeals = getCachedData<MealRecord[]>('cached_meals');
+    const cachedIngredients = getCachedData<Ingredient[]>('cached_ingredients');
+    const hasCache = (Array.isArray(cachedMeals) && cachedMeals.length > 0) || 
+                     (Array.isArray(cachedIngredients) && cachedIngredients.length > 0);
+    return !hasCache;
   });
   const [syncMode, setSyncMode] = useState<'none' | 'manual' | 'quiet'>('none');
   const isBackgroundSyncing = syncMode !== 'none';
@@ -288,54 +238,54 @@ const App: React.FC = () => {
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const [nutrientTargetsMap, setNutrientTargetsMap] = useState<Record<string, NutrientTargets>>(() => {
+    const cached = getCachedData<Record<string, NutrientTargets>>('nutrientTargetsMap');
+    if (cached && typeof cached === 'object') return cached;
     try {
-      const saved = safeLocalStorage.getItem('nutrientTargetsMap');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-      const legacy = safeLocalStorage.getItem('nutrientTargets');
+      const legacy = localStorage.getItem('nutrientTargets');
       if (legacy) {
         const parsedLegacy = JSON.parse(legacy);
         return { [selectedDate]: parsedLegacy };
       }
-      return {};
-    } catch {
-      return {};
-    }
+    } catch {}
+    return {};
+  });
+
+  const [syncError, setSyncError] = useState<boolean>(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(() => {
+    return getLastSyncedAt('cached_meals') || getLastSyncedAt('cached_ingredients');
   });
 
   // Sync state changes to localStorage
   useEffect(() => {
-    safeLocalStorage.setItem('cached_meals', JSON.stringify(meals));
+    setCachedData('cached_meals', meals);
   }, [meals]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_ingredients', JSON.stringify(ingredients));
+    setCachedData('cached_ingredients', ingredients);
   }, [ingredients]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_diaries', JSON.stringify(diaries));
+    setCachedData('cached_diaries', diaries);
   }, [diaries]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_activities', JSON.stringify(activities));
+    setCachedData('cached_activities', activities);
   }, [activities]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_recommendations', JSON.stringify(recommendations));
+    setCachedData('cached_recommendations', recommendations);
   }, [recommendations]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(nutrientTargetsMap));
+    setCachedData('nutrientTargetsMap', nutrientTargetsMap);
   }, [nutrientTargetsMap]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_bmr_history', JSON.stringify(bmrHistory));
+    setCachedData('cached_bmr_history', bmrHistory);
   }, [bmrHistory]);
 
   useEffect(() => {
-    safeLocalStorage.setItem('cached_memos', JSON.stringify(memos));
+    setCachedData('cached_memos', memos);
   }, [memos]);
 
   const getTargetForDate = useCallback((date: string): NutrientTargets => {
@@ -478,52 +428,52 @@ const App: React.FC = () => {
       const data = await fetchInitialData();
       let hasChanges = false;
 
-      const currentMealsStr = safeLocalStorage.getItem('cached_meals') || '[]';
-      const fetchedMealsStr = JSON.stringify(data.meals || []);
-      if (fetchedMealsStr !== currentMealsStr) {
-        setMeals(data.meals || []);
+      const currentMeals = getCachedData<MealRecord[]>('cached_meals') || [];
+      const fetchedMeals = data.meals || [];
+      if (JSON.stringify(fetchedMeals) !== JSON.stringify(currentMeals)) {
+        setMeals(fetchedMeals);
         hasChanges = true;
       }
 
-      const currentIngredientsStr = safeLocalStorage.getItem('cached_ingredients') || '[]';
-      const fetchedIngredientsStr = JSON.stringify(data.ingredients || []);
-      if (fetchedIngredientsStr !== currentIngredientsStr) {
-        setIngredients(data.ingredients || []);
+      const currentIngredients = getCachedData<Ingredient[]>('cached_ingredients') || [];
+      const fetchedIngredients = data.ingredients || [];
+      if (JSON.stringify(fetchedIngredients) !== JSON.stringify(currentIngredients)) {
+        setIngredients(fetchedIngredients);
         hasChanges = true;
       }
 
-      const currentDiariesStr = safeLocalStorage.getItem('cached_diaries') || '[]';
-      const fetchedDiariesStr = JSON.stringify(data.diaries || []);
-      if (fetchedDiariesStr !== currentDiariesStr) {
-        setDiaries(data.diaries || []);
+      const currentDiaries = getCachedData<HealthDiary[]>('cached_diaries') || [];
+      const fetchedDiaries = data.diaries || [];
+      if (JSON.stringify(fetchedDiaries) !== JSON.stringify(currentDiaries)) {
+        setDiaries(fetchedDiaries);
         hasChanges = true;
       }
 
-      const currentActivitiesStr = safeLocalStorage.getItem('cached_activities') || '[]';
-      const fetchedActivitiesStr = JSON.stringify(data.activities || []);
-      if (fetchedActivitiesStr !== currentActivitiesStr) {
-        setActivities(data.activities || []);
+      const currentActivities = getCachedData<ActivityLog[]>('cached_activities') || [];
+      const fetchedActivities = data.activities || [];
+      if (JSON.stringify(fetchedActivities) !== JSON.stringify(currentActivities)) {
+        setActivities(fetchedActivities);
         hasChanges = true;
       }
 
-      const currentRecommendationsStr = safeLocalStorage.getItem('cached_recommendations') || '[]';
-      const fetchedRecommendationsStr = JSON.stringify(data.recommendations || []);
-      if (fetchedRecommendationsStr !== currentRecommendationsStr) {
-        setRecommendations(data.recommendations || []);
+      const currentRecommendations = getCachedData<AIRecommendation[]>('cached_recommendations') || [];
+      const fetchedRecommendations = data.recommendations || [];
+      if (JSON.stringify(fetchedRecommendations) !== JSON.stringify(currentRecommendations)) {
+        setRecommendations(fetchedRecommendations);
         hasChanges = true;
       }
 
-      const currentBmrHistoryStr = safeLocalStorage.getItem('cached_bmr_history') || '[]';
-      const fetchedBmrHistoryStr = JSON.stringify(data.bmrHistory || []);
-      if (fetchedBmrHistoryStr !== currentBmrHistoryStr) {
-        setBmrHistory(data.bmrHistory || []);
+      const currentBmrHistory = getCachedData<BMRRecord[]>('cached_bmr_history') || [];
+      const fetchedBmrHistory = data.bmrHistory || [];
+      if (JSON.stringify(fetchedBmrHistory) !== JSON.stringify(currentBmrHistory)) {
+        setBmrHistory(fetchedBmrHistory);
         hasChanges = true;
       }
 
-      const currentMemosStr = safeLocalStorage.getItem('cached_memos') || '[]';
-      const fetchedMemosStr = JSON.stringify(data.memos || []);
-      if (fetchedMemosStr !== currentMemosStr) {
-        setMemos(data.memos || []);
+      const currentMemos = getCachedData<Memo[]>('cached_memos') || [];
+      const fetchedMemos = data.memos || [];
+      if (JSON.stringify(fetchedMemos) !== JSON.stringify(currentMemos)) {
+        setMemos(fetchedMemos);
         hasChanges = true;
       }
 
@@ -539,23 +489,36 @@ const App: React.FC = () => {
         }
       });
 
-      const currentNutrientTargetsStr = safeLocalStorage.getItem('nutrientTargetsMap') || '{}';
-      const fetchedNutrientTargetsStr = JSON.stringify(newNtMap);
-      if (fetchedNutrientTargetsStr !== currentNutrientTargetsStr) {
+      const currentNutrientTargets = getCachedData<Record<string, NutrientTargets>>('nutrientTargetsMap') || {};
+      if (JSON.stringify(newNtMap) !== JSON.stringify(currentNutrientTargets)) {
         setNutrientTargetsMap(prev => ({ ...prev, ...newNtMap }));
         hasChanges = true;
       }
 
+      // Explicitly update cache structures to refresh the lastSyncedAt timestamp
+      setCachedData('cached_meals', fetchedMeals);
+      setCachedData('cached_ingredients', fetchedIngredients);
+      setCachedData('cached_diaries', fetchedDiaries);
+      setCachedData('cached_activities', fetchedActivities);
+      setCachedData('cached_recommendations', fetchedRecommendations);
+      setCachedData('cached_bmr_history', fetchedBmrHistory);
+      setCachedData('cached_memos', fetchedMemos);
+      setCachedData('nutrientTargetsMap', { ...currentNutrientTargets, ...newNtMap });
+
+      setSyncError(false);
+      setLastSyncedTime(new Date().toISOString());
+
       if (showToastMessage) {
         // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
       } else {
-        const hadCache = currentMealsStr !== '[]' || currentIngredientsStr !== '[]';
+        const hadCache = currentMeals.length > 0 || currentIngredients.length > 0;
         if (hasChanges && hadCache) {
           // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
         }
       }
     } catch (error) {
       console.error("Failed to load data from GAS", error);
+      setSyncError(true);
       showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
     } finally {
       setIsInitialLoad(false);
@@ -630,9 +593,11 @@ const App: React.FC = () => {
   }, [isSidebarOpen, isSettingsOpen, isInputOpen, isDiaryOpen, isActivityUploadOpen, adviceModalOpen, isAdminLoginOpen]);
 
   useEffect(() => {
-    // 앱 처음 진입 시에는 구글 스프레드시트 서버 조회(동기화)를 즉시 타지 않고 로컬 캐시로 신속히 로드합니다.
-    setIsInitialLoad(false);
-  }, []);
+    // 앱 처음 진입 시 백그라운드 동기화를 실행하여 서버에서 최신 데이터를 가져옵니다.
+    // 캐시가 있는 경우, 이미 useState 초기값으로 로드되어 있으며 isInitialLoad가 false이므로 화면이 즉시 렌더링됩니다.
+    // 캐시가 없는 경우, isInitialLoad가 true이므로 스켈레톤이 표시됩니다.
+    syncDataWithGAS(false, 'quiet');
+  }, [syncDataWithGAS]);
 
   useEffect(() => {
     if (isBackgroundSyncing) {
@@ -1060,6 +1025,20 @@ const App: React.FC = () => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentView={currentView} onNavigate={setCurrentView} isAdmin={isAdmin} onLogout={handleLogout} onOpenAdminLogin={() => setIsAdminLoginOpen(true)} selectedDate={selectedDate} onOpenSettings={() => setIsSettingsOpen(true)} />
 
       <main className="p-4">
+        {syncError && !isInitialLoad && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center space-x-3 text-amber-800 shadow-sm animate-in slide-in-from-top-2 duration-300">
+            <span className="text-xl">⚠️</span>
+            <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-bold leading-relaxed">데이터를 새로 불러오지 못해 마지막 확인된 데이터를 표시합니다.</span>
+              {lastSyncedTime && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 sm:mt-0">
+                  마지막 동기화: {formatLastSynced(lastSyncedTime)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {isInitialLoad ? (
           <DashboardSkeleton />
         ) : currentView === 'main' ? (
