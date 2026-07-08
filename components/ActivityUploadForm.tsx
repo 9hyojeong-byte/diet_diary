@@ -66,9 +66,9 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     const remainingHours = getRemainingHours(date);
     const remainingBmr = Math.round(bmr * (remainingHours / 24));
 
-    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 + 남은 시간 추가 소모량
+    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 * 1.15 + 남은 시간 추가 소모량
     const totalCalsNum = parseFloat(totalCals) || 0;
-    const calculatedTdee = Math.round(totalCalsNum + remainingBmr);
+    const calculatedTdee = Math.round(totalCalsNum * 1.15 + remainingBmr);
 
     setTef(calculatedTef);
     setTdee(calculatedTdee);

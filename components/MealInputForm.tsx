@@ -325,11 +325,15 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
             <div className="space-y-6 animate-in fade-in">
               <div className="relative">
                 <input 
-                  type="text" 
+                  type="search" 
                   placeholder="식재료 검색..." 
                   value={searchTerm} 
                   onChange={e => setSearchTerm(e.target.value)} 
                   className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium" 
+                  autoComplete="one-time-code"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck="false"
                 />
                 <button onClick={() => setIsAddingNew(true)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-600 underline">직접 입력</button>
               </div>
