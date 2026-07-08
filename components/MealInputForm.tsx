@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus } from '../types';
 import { getKSTTime, getTodayKST, getKSTTimeWithOffset, formatTime, getKSTDateTimeWithOffset, generateUUID } from '../utils';
 import { analyzeMealDescription } from '../services/geminiService';
@@ -14,11 +14,12 @@ interface Props {
   meals: MealRecord[];
   isAdmin: boolean;
   onSave: (meal: MealRecord, ingredient?: Ingredient) => void;
+  onSaveMultiple?: (meals: MealRecord[]) => void;
   onDelete?: (uuid: string) => Promise<boolean>;
   trialMessage?: string;
 }
 
-const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onDelete, trialMessage }) => {
+const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefilledType, editTarget, ingredients, meals, isAdmin, onSave, onSaveMultiple, onDelete, trialMessage }) => {
   const isDirectEntryEdit = editTarget?.ingredient_uuid === 'direct-entry';
 
   const [date, setDate] = useState(editTarget?.date || selectedDate);
@@ -75,6 +76,53 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     const yesterdayStr = current.toISOString().split('T')[0];
     return meals.filter(m => m.date === yesterdayStr && m.type === type && m.status === MealStatus.ACTUAL);
   }, [meals, date, type, editTarget]);
+
+  const [activeYesterdayMeals, setActiveYesterdayMeals] = useState<MealRecord[]>([]);
+
+  useEffect(() => {
+    setActiveYesterdayMeals(yesterdayMeals);
+  }, [yesterdayMeals]);
+
+  const lastTapMap = useRef<Record<string, number>>({});
+
+  const handleRemoveYesterdayMeal = (uuid: string) => {
+    setActiveYesterdayMeals(prev => prev.filter(m => String(m.uuid) !== String(uuid)));
+  };
+
+  const handleMealTap = (uuid: string) => {
+    const now = Date.now();
+    const LAST_TAP_DELAY = 300;
+    const lastTap = lastTapMap.current[uuid] || 0;
+    if (now - lastTap < LAST_TAP_DELAY) {
+      handleRemoveYesterdayMeal(uuid);
+      delete lastTapMap.current[uuid];
+    } else {
+      lastTapMap.current[uuid] = now;
+    }
+  };
+
+  const handleCopyYesterdayMeals = () => {
+    if (activeYesterdayMeals.length === 0 || !onSaveMultiple) return;
+    const newMeals: MealRecord[] = activeYesterdayMeals.map(ym => ({
+      uuid: generateUUID(),
+      type: ym.type,
+      status: MealStatus.PLANNED,
+      date: date,
+      time: '23:59',
+      ingredient_name: ym.ingredient_name,
+      ingredient_uuid: ym.ingredient_uuid,
+      amount: ym.amount,
+      kcal: ym.kcal,
+      carbs: ym.carbs,
+      protein: ym.protein,
+      fat: ym.fat,
+      sugar: ym.sugar,
+      fiber: ym.fiber,
+      created_at: new Date().toISOString()
+    }));
+    onSaveMultiple(newMeals);
+    onClose();
+  };
 
   const handleSelectYesterdayMeal = useCallback((meal: MealRecord) => {
     const isDirect = meal.ingredient_uuid === 'direct-entry';
@@ -342,28 +390,41 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
                 <div className="space-y-5">
                   {yesterdayMeals.length > 0 && (
                     <div className="space-y-3 animate-in slide-in-from-top-2">
-                      <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-1 flex items-center">
-                        <span className="mr-1">🕒</span> 어제 먹은 {type} 메뉴 ({yesterdayMeals.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {yesterdayMeals.map((meal) => (
-                          <button 
-                            key={meal.uuid}
-                            onClick={() => handleSelectYesterdayMeal(meal)}
-                            className="w-full p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-50 flex justify-between items-center active:scale-[0.98] transition-all group border-b-2 border-indigo-700"
-                          >
-                            <div className="text-left flex-1 truncate mr-2">
-                              <p className="text-[10px] font-black opacity-70 mb-0.5">그대로 가져오기</p>
-                              <p className="text-sm font-bold truncate">{meal.ingredient_name || '식재료'} / {meal.amount}g</p>
-                            </div>
-                            <div className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                                <path d="M5 5a2 2 0 012-2h6a2 2 0 012 2v2H7a2 2 0 00-2 2v6H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
-                              </svg>
-                            </div>
-                          </button>
-                        ))}
+                      <div className="flex justify-between items-center px-1">
+                        <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center">
+                          <span className="mr-1">🕒</span> 어제 먹은 {type} 메뉴
+                        </h3>
+                        {activeYesterdayMeals.length > 0 && (
+                          <span className="text-[8px] font-bold text-indigo-400/80 animate-pulse">💡 더블 클릭 시 제외</span>
+                        )}
+                      </div>
+                      <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex flex-col space-y-3">
+                        {activeYesterdayMeals.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 py-1">
+                            {activeYesterdayMeals.map((meal) => (
+                              <button
+                                key={meal.uuid}
+                                onClick={() => handleMealTap(meal.uuid)}
+                                className="px-2.5 py-1.5 bg-white border border-indigo-100 hover:border-indigo-300 text-indigo-950 font-bold text-[10px] rounded-lg shadow-sm active:scale-95 transition-all select-none"
+                              >
+                                {meal.ingredient_name || '식재료'} / {meal.amount}g
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-center py-3 text-xs font-semibold text-slate-400 italic">
+                            모든 메뉴가 제외되었습니다.
+                          </p>
+                        )}
+                        <button
+                          onClick={handleCopyYesterdayMeals}
+                          disabled={activeYesterdayMeals.length === 0}
+                          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-40 disabled:pointer-events-none border-b-2 border-indigo-700"
+                        >
+                          <span>
+                            {`✨ 어제 식단 예정으로 전체 입력 (${activeYesterdayMeals.length}개)`}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   )}

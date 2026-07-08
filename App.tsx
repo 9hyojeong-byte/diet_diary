@@ -222,8 +222,6 @@ const App: React.FC = () => {
   const [syncMode, setSyncMode] = useState<'none' | 'manual' | 'quiet'>('none');
   const isBackgroundSyncing = syncMode !== 'none';
   const [syncEmoji, setSyncEmoji] = useState<string>('🥗');
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchDelta, setTouchDelta] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -542,34 +540,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Touch handlers for Pull to Refresh
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
-      setTouchStart(e.touches[0].clientY);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart !== null) {
-      const currentY = e.touches[0].clientY;
-      const delta = currentY - touchStart;
-      if (delta > 0) {
-        setTouchDelta(Math.min(delta / 2, 80));
-      }
-    }
-  };
-
-  const handleTouchEnd = async () => {
-    if (touchStart !== null) {
-      if (touchDelta >= 50 && !isBackgroundSyncing) {
-        showToast("🔄 데이터 동기화 시작...");
-        await syncDataWithGAS(true, 'manual');
-      }
-      setTouchStart(null);
-      setTouchDelta(0);
-    }
-  };
-
   // Toast handler
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -663,6 +633,27 @@ const App: React.FC = () => {
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
   }, [meals, ingredients, isAdmin, syncDataWithGAS]);
+
+  const onSaveMultipleMeals = useCallback(async (newMeals: MealRecord[]) => {
+    if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+    const prevMeals = [...meals];
+    setMeals(prev => [...prev, ...newMeals.map(m => ({ ...m, pending: true }))]);
+    try {
+      for (const meal of newMeals) {
+        const success = await saveMealToGAS(meal);
+        if (!success) throw new Error("Server storage failed for meal: " + meal.uuid);
+      }
+      setMeals(prev => prev.map(m => {
+        const matched = newMeals.find(nm => String(nm.uuid) === String(m.uuid));
+        return matched ? { ...m, pending: false } : m;
+      }));
+      await syncDataWithGAS(false);
+    } catch (error) {
+      console.error("Failed to save multiple meals", error);
+      setMeals(prevMeals);
+      showToast("저장에 실패했습니다. 다시 시도해 주세요.");
+    }
+  }, [meals, isAdmin, syncDataWithGAS]);
  
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -927,31 +918,8 @@ const App: React.FC = () => {
 
   return (
     <div 
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}
     >
-      {/* Pull to Refresh Indicator */}
-      {touchDelta > 0 && (
-        <div 
-          className="w-full flex justify-center items-center overflow-hidden transition-all duration-75 text-indigo-600 bg-white border-b border-slate-100 sticky top-0 z-[110]"
-          style={{ height: `${touchDelta}px` }}
-        >
-          <div className="flex items-center space-x-2 text-xs font-black">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className={`h-4 w-4 transition-transform duration-200 ${touchDelta >= 50 ? 'rotate-180' : ''}`}
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-            <span>{touchDelta >= 50 ? '놓아서 새로고침' : '당겨서 새로고침'}</span>
-          </div>
-        </div>
-      )}
 
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1149,7 +1117,7 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
+      {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onSaveMultiple={onSaveMultipleMeals} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
       {isActivityUploadOpen && (
         <ActivityUploadForm 
           isOpen={isActivityUploadOpen}
