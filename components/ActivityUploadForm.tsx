@@ -13,9 +13,20 @@ interface Props {
   onCancel: () => void;
   meals: MealRecord[];
   bmr: number;
+  tdeeMultiplier: number;
 }
 
-const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActivity, onSave, onDelete, onCancel, meals, bmr }) => {
+const ActivityUploadForm: React.FC<Props> = ({ 
+  isOpen, 
+  initialDate, 
+  existingActivity, 
+  onSave, 
+  onDelete, 
+  onCancel, 
+  meals, 
+  bmr,
+  tdeeMultiplier
+}) => {
   const [date, setDate] = useState(initialDate);
   const [steps, setSteps] = useState(existingActivity?.steps.toString() || '');
   const [activeCals, setActiveCals] = useState(existingActivity?.active_calories.toString() || '');
@@ -66,9 +77,9 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
     const remainingHours = getRemainingHours(date);
     const remainingBmr = Math.round(bmr * (remainingHours / 24));
 
-    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 * 1.1 + 남은 시간 추가 소모량
+    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 * tdeeMultiplier + 남은 시간 추가 소모량
     const totalCalsNum = parseFloat(totalCals) || 0;
-    const calculatedTdee = Math.round(totalCalsNum * 1.1 + remainingBmr);
+    const calculatedTdee = Math.round(totalCalsNum * tdeeMultiplier + remainingBmr);
 
     setTef(calculatedTef);
     setTdee(calculatedTdee);
@@ -276,7 +287,7 @@ const ActivityUploadForm: React.FC<Props> = ({ isOpen, initialDate, existingActi
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-xs font-black text-slate-300">🔥 최종 예상 소모량 (TDEE)</span>
+                  <span className="text-xs font-black text-slate-300">🔥 최종 예상 소모량 (TDEE, 보정치: {tdeeMultiplier})</span>
                   <span className="text-lg font-black text-amber-400 animate-pulse">{tdee?.toLocaleString()} kcal</span>
                 </div>
                 {tdee !== null && tef !== null && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BMRRecord } from '../types';
 
 interface Props {
@@ -6,9 +6,18 @@ interface Props {
   onClose: () => void;
   bmrHistory: BMRRecord[];
   onSaveBMR: (bmr: number, effectiveDate: string) => Promise<boolean>;
+  tdeeMultiplier: number;
+  onSaveTdeeMultiplier: (val: number) => void;
 }
 
-const SettingsModal: React.FC<Props> = ({ isOpen, onClose, bmrHistory, onSaveBMR }) => {
+const SettingsModal: React.FC<Props> = ({ 
+  isOpen, 
+  onClose, 
+  bmrHistory, 
+  onSaveBMR,
+  tdeeMultiplier,
+  onSaveTdeeMultiplier
+}) => {
   const getTodayKST = () => {
     const now = new Date();
     const kstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
@@ -19,6 +28,16 @@ const SettingsModal: React.FC<Props> = ({ isOpen, onClose, bmrHistory, onSaveBMR
   const [effectiveDate, setEffectiveDate] = useState<string>(getTodayKST());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [tdeeInput, setTdeeInput] = useState<string>(tdeeMultiplier.toString());
+  const [tdeeError, setTdeeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTdeeInput(tdeeMultiplier.toString());
+      setTdeeError(null);
+    }
+  }, [isOpen, tdeeMultiplier]);
 
   if (!isOpen) return null;
 
@@ -60,6 +79,19 @@ const SettingsModal: React.FC<Props> = ({ isOpen, onClose, bmrHistory, onSaveBMR
     }
   };
 
+  const handleSaveTdee = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTdeeError(null);
+
+    const parsedTdee = parseFloat(tdeeInput);
+    if (isNaN(parsedTdee) || parsedTdee <= 0) {
+      setTdeeError('올바른 TDEE 보정치(0보다 큰 숫자)를 입력해주세요.');
+      return;
+    }
+
+    onSaveTdeeMultiplier(parsedTdee);
+  };
+
   return (
     <div 
       className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300"
@@ -87,6 +119,57 @@ const SettingsModal: React.FC<Props> = ({ isOpen, onClose, bmrHistory, onSaveBMR
 
         {/* Content Area */}
         <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
+          {/* TDEE Multiplier Form */}
+          <form onSubmit={handleSaveTdee} className="space-y-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50">
+            <h4 className="text-xs font-black text-amber-900 flex items-center space-x-1 uppercase tracking-wider">
+              <span>🔥</span>
+              <span>TDEE 보정치 설정</span>
+            </h4>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">보정치 비율 (기본값: 1.1)</label>
+                <div className="flex space-x-1">
+                  {[1.1, 1.2, 1.3, 1.5].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setTdeeInput(val.toString())}
+                      className={`px-2 py-1 text-[10px] font-black rounded-lg border transition-all ${
+                        parseFloat(tdeeInput) === val 
+                          ? 'bg-amber-500 border-amber-500 text-white shadow-sm' 
+                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="number" 
+                  step="0.01"
+                  placeholder="예: 1.1"
+                  value={tdeeInput}
+                  onChange={(e) => setTdeeInput(e.target.value)}
+                  className="flex-1 p-3 bg-white rounded-xl border border-gray-100 focus:ring-2 focus:ring-amber-500 outline-none font-black text-amber-600 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!tdeeInput || tdeeInput === tdeeMultiplier.toString()}
+                  className="py-3 px-5 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-xl text-xs font-black transition-all active:scale-[0.98] shadow-lg shadow-amber-100 flex-shrink-0"
+                >
+                  보정치 변경 💾
+                </button>
+              </div>
+            </div>
+
+            {tdeeError && (
+              <p className="text-[11px] text-red-500 font-bold ml-1">{tdeeError}</p>
+            )}
+          </form>
+
           {/* New BMR Form */}
           <form onSubmit={handleSave} className="space-y-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
             <h4 className="text-xs font-black text-indigo-900 flex items-center space-x-1 uppercase tracking-wider">

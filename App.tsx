@@ -211,6 +211,16 @@ const App: React.FC = () => {
   const [memos, setMemos] = useState<Memo[]>(() => getCachedData<Memo[]>('cached_memos') || []);
   const [isPinnedMemoOpen, setIsPinnedMemoOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [tdeeMultiplier, setTdeeMultiplier] = useState<number>(() => {
+    const saved = safeLocalStorage.getItem('tdeeMultiplier');
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return 1.1;
+  });
   
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
     const cachedMeals = getCachedData<MealRecord[]>('cached_meals');
@@ -417,6 +427,12 @@ const App: React.FC = () => {
       return false;
     }
   };
+
+  const onSaveTdeeMultiplier = useCallback((val: number) => {
+    safeLocalStorage.setItem('tdeeMultiplier', val.toString());
+    setTdeeMultiplier(val);
+    showToast("TDEE 보정치가 성공적으로 저장되었습니다. 💾");
+  }, []);
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
@@ -1128,10 +1144,20 @@ const App: React.FC = () => {
           onCancel={() => setIsActivityUploadOpen(false)} 
           meals={meals}
           bmr={getBmrForDate(activityUploadDate)}
+          tdeeMultiplier={tdeeMultiplier}
         />
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
-      {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} bmrHistory={bmrHistory} onSaveBMR={onSaveBMR} />}
+      {isSettingsOpen && (
+        <SettingsModal 
+          isOpen={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+          bmrHistory={bmrHistory} 
+          onSaveBMR={onSaveBMR} 
+          tdeeMultiplier={tdeeMultiplier}
+          onSaveTdeeMultiplier={onSaveTdeeMultiplier}
+        />
+      )}
       {adviceModalOpen && (
         <AIAdviceModal 
           isOpen={adviceModalOpen} 
