@@ -17,12 +17,12 @@ import ActivityLogView from './components/ActivityLogView';
 import ActivityUploadForm from './components/ActivityUploadForm';
 import SettingsModal from './components/SettingsModal';
 import { getTargetKcal, getTargetProtein, getTodayKST, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
-import { 
-  fetchInitialData, 
-  saveMealToGAS, 
-  updateMealInGAS, 
+import {
+  fetchInitialData,
+  saveMealToGAS,
+  updateMealInGAS,
   deleteMealFromGAS,
-  saveIngredientToGAS, 
+  saveIngredientToGAS,
   updateIngredientInGAS,
   deleteIngredientFromGAS,
   updateIngredientBookmark,
@@ -142,7 +142,7 @@ const parseCreatedAt = (str: string): number => {
       const year = parseInt(parts[0].replace('.', '')) || 2026;
       const month = (parseInt(parts[1].replace('.', '')) || 1) - 1;
       const day = parseInt(parts[2].replace('.', '')) || 1;
-      
+
       const ampm = parts[3];
       const timeParts = parts[4] ? parts[4].split(':') : ['0', '0', '0'];
       let hour = parseInt(timeParts[0]) || 0;
@@ -159,7 +159,7 @@ const parseCreatedAt = (str: string): number => {
   } catch (e) {
     console.error("Failed parsing created_at", str, e);
   }
-  
+
   return 0;
 };
 
@@ -174,12 +174,12 @@ const safeLocalStorage = {
   setItem: (key: string, value: string): void => {
     try {
       localStorage.setItem(key, value);
-    } catch {}
+    } catch { }
   },
   removeItem: (key: string): void => {
     try {
       localStorage.removeItem(key);
-    } catch {}
+    } catch { }
   }
 };
 
@@ -201,7 +201,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'main' | 'ingredients' | 'stats' | 'memos' | 'activity'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKST());
-  
+
   const [meals, setMeals] = useState<MealRecord[]>(() => getCachedData<MealRecord[]>('cached_meals') || []);
   const [ingredients, setIngredients] = useState<Ingredient[]>(() => getCachedData<Ingredient[]>('cached_ingredients') || []);
   const [diaries, setDiaries] = useState<HealthDiary[]>(() => getCachedData<HealthDiary[]>('cached_diaries') || []);
@@ -221,12 +221,12 @@ const App: React.FC = () => {
     }
     return 1.1;
   });
-  
+
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(() => {
     const cachedMeals = getCachedData<MealRecord[]>('cached_meals');
     const cachedIngredients = getCachedData<Ingredient[]>('cached_ingredients');
-    const hasCache = (Array.isArray(cachedMeals) && cachedMeals.length > 0) || 
-                     (Array.isArray(cachedIngredients) && cachedIngredients.length > 0);
+    const hasCache = (Array.isArray(cachedMeals) && cachedMeals.length > 0) ||
+      (Array.isArray(cachedIngredients) && cachedIngredients.length > 0);
     return !hasCache;
   });
   const [syncMode, setSyncMode] = useState<'none' | 'manual' | 'quiet'>('none');
@@ -235,7 +235,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingEmoji, setLoadingEmoji] = useState('🥗');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
+
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isDiaryOpen, setIsDiaryOpen] = useState(false);
   const [isActivityUploadOpen, setIsActivityUploadOpen] = useState(false);
@@ -254,7 +254,7 @@ const App: React.FC = () => {
         const parsedLegacy = JSON.parse(legacy);
         return { [selectedDate]: parsedLegacy };
       }
-    } catch {}
+    } catch { }
     return {};
   });
 
@@ -298,11 +298,11 @@ const App: React.FC = () => {
 
   const getTargetForDate = useCallback((date: string): NutrientTargets => {
     if (nutrientTargetsMap[date]) return nutrientTargetsMap[date];
-    
+
     // Find the closest previous date with targets
     const sortedDates = Object.keys(nutrientTargetsMap).sort((a, b) => b.localeCompare(a));
     const previousDate = sortedDates.find(d => d < date);
-    
+
     if (previousDate) return nutrientTargetsMap[previousDate];
 
     // Default fallback
@@ -316,18 +316,18 @@ const App: React.FC = () => {
 
   const getBmrForDate = useCallback((date: string): number => {
     if (bmrHistory.length === 0) return 1410; // Default fallback BMR
-    
+
     // Sort descending by effectiveDate, then by createdAt
     const sorted = [...bmrHistory].sort((a, b) => {
       const dateCompare = b.effectiveDate.localeCompare(a.effectiveDate);
       if (dateCompare !== 0) return dateCompare;
       return b.createdAt.localeCompare(a.createdAt);
     });
-    
+
     // Find the record that is effective on or before the target date
     const record = sorted.find(r => r.effectiveDate <= date);
     if (record) return record.bmr;
-    
+
     // If none are <= date, return the oldest one
     return sorted[sorted.length - 1].bmr;
   }, [bmrHistory]);
@@ -494,11 +494,11 @@ const App: React.FC = () => {
       const newNtMap: Record<string, NutrientTargets> = {};
       (data.nutrientTargets || []).forEach(nt => {
         if (nt && nt.date) {
-          newNtMap[nt.date] = { 
-            kcal: Number(nt.kcal) || 1600, 
-            carbs: Number(nt.carbs) || 200, 
-            protein: Number(nt.protein) || 120, 
-            fat: Number(nt.fat) || 35 
+          newNtMap[nt.date] = {
+            kcal: Number(nt.kcal) || 1600,
+            carbs: Number(nt.carbs) || 200,
+            protein: Number(nt.protein) || 120,
+            fat: Number(nt.fat) || 35
           };
         }
       });
@@ -544,7 +544,7 @@ const App: React.FC = () => {
     const newMap = { ...nutrientTargetsMap, [selectedDate]: newTargets };
     setNutrientTargetsMap(newMap);
     safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(newMap));
-    
+
     try {
       await saveNutrientTargetsToGAS({ ...newTargets, date: selectedDate });
       showToast(`${selectedDate} 목표 영양분이 수정되었습니다. ✨`);
@@ -605,7 +605,7 @@ const App: React.FC = () => {
   const currentRecommendation = useMemo(() => {
     const dayRecommendations = recommendations.filter(r => r.date === selectedDate);
     if (dayRecommendations.length === 0) return undefined;
-    
+
     return [...dayRecommendations].sort((a, b) => {
       const timeA = parseCreatedAt(a.created_at);
       const timeB = parseCreatedAt(b.created_at);
@@ -670,20 +670,20 @@ const App: React.FC = () => {
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
   }, [meals, isAdmin, syncDataWithGAS]);
- 
+
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
     if (!target || target.status === status) return;
     const prevMeals = [...meals];
-    
+
     // ACTUAL로 전환 시 현재 시각/날짜, PLANNED로 전환 시 23:59
     const isToActual = status === MealStatus.ACTUAL;
     const isToPlanned = status === MealStatus.PLANNED;
-    
+
     const newTime = isToActual ? getKSTTime() : (isToPlanned ? '23:59' : target.time);
     const newDate = target.date; // 날짜는 기존 상태 그대로 유지
- 
+
     const updatedMeal: MealRecord = { ...target, status, time: newTime, date: newDate, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
@@ -696,7 +696,7 @@ const App: React.FC = () => {
       showToast("상태 변경에 실패했습니다. 다시 시도해 주세요.");
     }
   }, [meals, isAdmin, syncDataWithGAS]);
- 
+
   const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
     const target = meals.find(m => String(m.uuid) === String(uuid));
@@ -726,13 +726,13 @@ const App: React.FC = () => {
     return '식재료 정보 없음';
   }, [ingredients]);
 
-/** 식단 복사 기능 **/
+  /** 식단 복사 기능 **/
 
   const handleCopyTextToClipboard = useCallback((includePlanned: boolean = false) => {
-    const mealsToCopy = filteredMeals.filter(m => 
+    const mealsToCopy = filteredMeals.filter(m =>
       m.status === MealStatus.ACTUAL || (includePlanned && m.status === MealStatus.PLANNED)
     );
-    
+
     if (mealsToCopy.length === 0 && !currentDiary && !currentActivity) {
       alert("복사할 데이터(식단, 일기, 활동량)가 없습니다.");
       return;
@@ -778,27 +778,27 @@ const App: React.FC = () => {
       text += `- 활동 칼로리 : ${currentActivity.active_calories}kcal\n`;
       text += `- TEF : ${tef}kcal\n`;
       text += `- 총 소모 칼로리 : ${activityTotal}kcal\n`;
-      text += `- 최종 총 소모 칼로리 (TDEE) : ${finalTDEE}kcal\n\n`;
+      text += `- 최종 총 소모 칼로리 (TDEE) : ${Math.round(finalTDEE * tdeeMultiplier)}kcal\n\n`;
     }
-    
+
     text = text.trim();
-    
+
     navigator.clipboard.writeText(text).then(() => {
       showToast("기록이 클립보드에 복사되었습니다! 📋");
     }).catch(err => {
       console.error("Clipboard copy failed", err);
       showToast("복사에 실패했습니다.");
     });
-  }, [filteredMeals, selectedDate, summary, getIngredientDisplayName, currentDiary, currentActivity]);
+  }, [filteredMeals, selectedDate, summary, getIngredientDisplayName, currentDiary, currentActivity, tdeeMultiplier]);
 
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevDiaries = [...diaries];
     const now = getKSTFullTime();
-    
+
     // Check if we already have a diary for the selected date to decide between Edit or Create
     const isEdit = !!currentDiary;
-    
+
     const newDiary: HealthDiary = {
       uuid: isEdit ? currentDiary.uuid : crypto.randomUUID(),
       date: selectedDate,
@@ -806,7 +806,7 @@ const App: React.FC = () => {
       updated_at: now,
       pending: true
     };
-    
+
     // Optimistic UI state update. Safeguard against date duplication.
     setDiaries(prev => {
       const exists = prev.some(d => d.date === selectedDate || d.uuid === newDiary.uuid);
@@ -816,13 +816,13 @@ const App: React.FC = () => {
         return [...prev, newDiary];
       }
     });
-    
+
     try {
       // Execute UPDATE if edit, otherwise INSERT (save)
-      const success = isEdit 
-        ? await updateDiaryInGAS(newDiary) 
+      const success = isEdit
+        ? await updateDiaryInGAS(newDiary)
         : await saveDiaryToGAS(newDiary);
-        
+
       if (success) {
         setDiaries(prev => prev.map(d => d.uuid === newDiary.uuid ? { ...newDiary, pending: false } : d));
         showToast(isEdit ? "건강 일기가 수정되었습니다! ✨" : "건강 일기가 저장되었습니다! ✨");
@@ -830,17 +830,17 @@ const App: React.FC = () => {
       } else {
         throw new Error("Diary persistent operation returned false");
       }
-    } catch (error) { 
+    } catch (error) {
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");
     }
   }, [selectedDate, currentDiary, diaries, isAdmin, syncDataWithGAS]);
- 
+
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
     const isUpdate = activities.some(a => a.uuid === activity.uuid);
-    
+
     setActivities(prev => {
       const exists = prev.some(a => a.uuid === activity.uuid);
       return exists ? prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: true } : a) : [...prev, { ...activity, pending: true }];
@@ -858,7 +858,7 @@ const App: React.FC = () => {
       showToast("활동 기록 저장에 실패했습니다.");
     }
   }, [activities, isAdmin, syncDataWithGAS]);
- 
+
   const onDeleteActivity = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevActivities = [...activities];
@@ -874,7 +874,7 @@ const App: React.FC = () => {
       showToast("활동 기록 삭제에 실패했습니다.");
     }
   }, [activities, isAdmin, syncDataWithGAS]);
- 
+
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const target = ingredients.find(i => String(i.uuid) === String(uuid));
@@ -882,23 +882,23 @@ const App: React.FC = () => {
     const prevIngredients = [...ingredients];
     const next = !target.is_bookmarked;
     setIngredients(prev => prev.map(i => String(i.uuid) === String(uuid) ? { ...i, is_bookmarked: next } : i));
-    try { 
-      const success = await updateIngredientBookmark(uuid, next); 
+    try {
+      const success = await updateIngredientBookmark(uuid, next);
       if (!success) throw new Error("Bookmark failed");
       await syncDataWithGAS(false);
-    } catch (err) { 
-      setIngredients(prevIngredients); 
+    } catch (err) {
+      setIngredients(prevIngredients);
       showToast("즐겨찾기 상태 변경에 실패했습니다.");
     }
   }, [ingredients, isAdmin, syncDataWithGAS]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); safeLocalStorage.setItem('isAdmin', 'true'); } };
-  const handleLogout = () => { 
-    if (confirm('관리자 모드를 해제하시겠습니까?')) { 
-      setIsAdmin(false); 
-      safeLocalStorage.removeItem('isAdmin'); 
+  const handleLogout = () => {
+    if (confirm('관리자 모드를 해제하시겠습니까?')) {
+      setIsAdmin(false);
+      safeLocalStorage.removeItem('isAdmin');
       if (currentView === 'memos') setCurrentView('main');
-    } 
+    }
   };
 
   const onSaveAIRecommendation = useCallback(async (advice: string) => {
@@ -917,7 +917,7 @@ const App: React.FC = () => {
       advice,
       created_at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
     };
-    
+
     setRecommendations(prev => {
       return [...prev, newRecommendation];
     });
@@ -933,7 +933,7 @@ const App: React.FC = () => {
   }, [recommendations, selectedDate]);
 
   return (
-    <div 
+    <div
       className={`max-w-md mx-auto min-h-screen pb-24 relative bg-gray-50 shadow-2xl transition-all ${!isAdmin ? 'ring-4 ring-orange-200 ring-inset' : ''}`}
     >
 
@@ -963,7 +963,7 @@ const App: React.FC = () => {
       )}
 
       {!isAdmin && <div className="bg-orange-500 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest sticky top-0 z-[60]">체험 모드로 접속 중입니다</div>}
-      
+
       <header className={`bg-indigo-600 text-white p-4 sticky ${!isAdmin ? 'top-6' : 'top-0'} z-50 shadow-lg flex items-center justify-between`}>
         <div className="flex items-center">
           {currentView === 'main' ? (
@@ -973,16 +973,16 @@ const App: React.FC = () => {
           )}
           <h1 className="ml-2 text-xl font-bold flex items-center">
             <span>
-              {currentView === 'main' ? '쿠쿠님의 식단 기록' : 
-               currentView === 'ingredients' ? '식재료 관리' : 
-               currentView === 'memos' ? '메모 목록' : 
-               currentView === 'activity' ? '활동량 기록' : '나의 통계'}
+              {currentView === 'main' ? '쿠쿠님의 식단 기록' :
+                currentView === 'ingredients' ? '식재료 관리' :
+                  currentView === 'memos' ? '메모 목록' :
+                    currentView === 'activity' ? '활동량 기록' : '나의 통계'}
             </span>
           </h1>
         </div>
         <div className="flex items-center space-x-2">
           {currentView === 'main' && (
-            <button 
+            <button
               onClick={() => setIsPinnedMemoOpen(true)}
               className="bg-white/15 hover:bg-white/25 p-2 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 flex items-center justify-center relative"
               title="상단 고정 메모 보기"
@@ -995,8 +995,8 @@ const App: React.FC = () => {
               )}
             </button>
           )}
-          <button 
-            onClick={() => syncDataWithGAS(true, 'manual')} 
+          <button
+            onClick={() => syncDataWithGAS(true, 'manual')}
             disabled={isBackgroundSyncing}
             className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80`}
             title="구글 스프레드시트와 데이터 동기화"
@@ -1028,10 +1028,10 @@ const App: React.FC = () => {
         ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
-            <DailySummaryView 
-              summary={summary} 
-              selectedDate={selectedDate} 
-              targets={nutrientTargets} 
+            <DailySummaryView
+              summary={summary}
+              selectedDate={selectedDate}
+              targets={nutrientTargets}
               onUpdateTargets={onUpdateNutrientTargets}
               isAdmin={isAdmin}
             />
@@ -1043,14 +1043,14 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-2 space-y-3">
-              <button 
+              <button
                 onClick={() => {
                   if (!isAdmin && !currentDiary) {
                     alert(TRIAL_MESSAGE);
                     return;
                   }
                   setIsDiaryOpen(true);
-                }} 
+                }}
                 className={`w-full py-4 rounded-2xl border-2 transition-all flex items-center justify-center space-x-2 font-black shadow-sm active:scale-[0.98] ${currentDiary ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-white border-dashed border-gray-200 text-gray-400'}`}
               >
                 <span className="text-xl">{currentDiary ? '📝' : '+'}</span>
@@ -1070,47 +1070,47 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : currentView === 'ingredients' ? (
-          <IngredientManagement 
-            ingredients={ingredients} 
-            isAdmin={isAdmin} 
-            onToggleBookmark={handleToggleBookmark} 
-            onAddIngredient={async (ing) => { 
-              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
-              setIngredients(p => [...p, ing]); 
-              const success = await saveIngredientToGAS(ing); 
+          <IngredientManagement
+            ingredients={ingredients}
+            isAdmin={isAdmin}
+            onToggleBookmark={handleToggleBookmark}
+            onAddIngredient={async (ing) => {
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+              setIngredients(p => [...p, ing]);
+              const success = await saveIngredientToGAS(ing);
               if (success) await syncDataWithGAS(false);
-            }} 
-            onUpdateIngredient={async (ing) => { 
-              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
-              setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i)); 
-              const success = await updateIngredientInGAS(ing); 
+            }}
+            onUpdateIngredient={async (ing) => {
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+              setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i));
+              const success = await updateIngredientInGAS(ing);
               if (success) await syncDataWithGAS(false);
-            }} 
-            onDeleteIngredient={async (id) => { 
-              if (!isAdmin) { alert(TRIAL_MESSAGE); return; } 
-              setIngredients(p => p.filter(i => i.uuid !== id)); 
-              const success = await deleteIngredientFromGAS(id); 
+            }}
+            onDeleteIngredient={async (id) => {
+              if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
+              setIngredients(p => p.filter(i => i.uuid !== id));
+              const success = await deleteIngredientFromGAS(id);
               if (success) await syncDataWithGAS(false);
-            }} 
-            trialMessage={TRIAL_MESSAGE} 
+            }}
+            trialMessage={TRIAL_MESSAGE}
           />
         ) : currentView === 'memos' ? (
-          <MemoList 
-            isAdmin={isAdmin} 
-            trialMessage={TRIAL_MESSAGE} 
+          <MemoList
+            isAdmin={isAdmin}
+            trialMessage={TRIAL_MESSAGE}
             memos={memos}
             onSaveMemo={onSaveMemo}
             onDeleteMemo={onDeleteMemo}
             onTogglePin={onTogglePin}
           />
         ) : currentView === 'activity' ? (
-          <ActivityLogView 
-            activities={activities} 
+          <ActivityLogView
+            activities={activities}
             meals={meals}
             onNavigateToUpload={(date) => {
               setActivityUploadDate(date);
               setIsActivityUploadOpen(true);
-            }} 
+            }}
           />
         ) : (
           <Statistics meals={meals} onDateSelect={(d) => { setSelectedDate(d); setCurrentView('main'); }} />
@@ -1118,7 +1118,7 @@ const App: React.FC = () => {
       </main>
 
       {currentView === 'main' && !isActivityUploadOpen && !isInitialLoad && (
-        <button 
+        <button
           onClick={() => {
             if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
             setActivityUploadDate(selectedDate);
@@ -1135,13 +1135,13 @@ const App: React.FC = () => {
 
       {isInputOpen && <MealInputForm isOpen={isInputOpen} onClose={() => { setIsInputOpen(false); setEditMealTarget(null); }} selectedDate={selectedDate} prefilledType={prefilledType} editTarget={editMealTarget} ingredients={ingredients} meals={meals} isAdmin={isAdmin} onSave={onSaveMeal} onSaveMultiple={onSaveMultipleMeals} onDelete={onDeleteMeal} trialMessage={TRIAL_MESSAGE} />}
       {isActivityUploadOpen && (
-        <ActivityUploadForm 
+        <ActivityUploadForm
           isOpen={isActivityUploadOpen}
-          initialDate={activityUploadDate} 
+          initialDate={activityUploadDate}
           existingActivity={activities.find(a => a.date === activityUploadDate)}
-          onSave={onSaveActivity} 
+          onSave={onSaveActivity}
           onDelete={onDeleteActivity}
-          onCancel={() => setIsActivityUploadOpen(false)} 
+          onCancel={() => setIsActivityUploadOpen(false)}
           meals={meals}
           bmr={getBmrForDate(activityUploadDate)}
           tdeeMultiplier={tdeeMultiplier}
@@ -1149,25 +1149,25 @@ const App: React.FC = () => {
       )}
       {isDiaryOpen && <DiaryModal isOpen={isDiaryOpen} onClose={() => setIsDiaryOpen(false)} selectedDate={selectedDate} diary={currentDiary} onSave={onSaveDiary} isAdmin={isAdmin} />}
       {isSettingsOpen && (
-        <SettingsModal 
-          isOpen={isSettingsOpen} 
-          onClose={() => setIsSettingsOpen(false)} 
-          bmrHistory={bmrHistory} 
-          onSaveBMR={onSaveBMR} 
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          bmrHistory={bmrHistory}
+          onSaveBMR={onSaveBMR}
           tdeeMultiplier={tdeeMultiplier}
           onSaveTdeeMultiplier={onSaveTdeeMultiplier}
         />
       )}
       {adviceModalOpen && (
-        <AIAdviceModal 
-          isOpen={adviceModalOpen} 
-          onClose={() => setAdviceModalOpen(false)} 
-          summary={summary} 
-          meals={filteredMeals} 
-          targetKcal={nutrientTargets.kcal} 
-          targetProtein={nutrientTargets.protein} 
-          activity={currentActivity} 
-          diary={currentDiary} 
+        <AIAdviceModal
+          isOpen={adviceModalOpen}
+          onClose={() => setAdviceModalOpen(false)}
+          summary={summary}
+          meals={filteredMeals}
+          targetKcal={nutrientTargets.kcal}
+          targetProtein={nutrientTargets.protein}
+          activity={currentActivity}
+          diary={currentDiary}
           savedRecommendation={currentRecommendation}
           onSaveRecommendation={onSaveAIRecommendation}
         />
@@ -1175,10 +1175,10 @@ const App: React.FC = () => {
       {isAdminLoginOpen && <AdminLoginModal isOpen={isAdminLoginOpen} onClose={() => setIsAdminLoginOpen(false)} onLogin={handleLogin} />}
       {isExitModalOpen && <ExitModal isOpen={isExitModalOpen} onClose={() => { setIsExitModalOpen(false); safePushState({ noBackExitsApp: true }, ''); }} />}
       {isPinnedMemoOpen && (
-        <PinnedMemoModal 
-          isOpen={isPinnedMemoOpen} 
-          onClose={() => setIsPinnedMemoOpen(false)} 
-          memo={currentPinnedMemo} 
+        <PinnedMemoModal
+          isOpen={isPinnedMemoOpen}
+          onClose={() => setIsPinnedMemoOpen(false)}
+          memo={currentPinnedMemo}
         />
       )}
     </div>
