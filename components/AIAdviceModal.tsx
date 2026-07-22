@@ -1,6 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { getAIRecommendation } from '../services/geminiService';
+import { 
+  getAIRecommendation, 
+  generateDefaultPrompt, 
+  generateInputDataSection, 
+  updatePromptWithLatestData 
+} from '../services/geminiService';
 import { DailySummary, MealRecord, ActivityLog, HealthDiary, AIRecommendation } from '../types';
 
 interface Props {
@@ -16,57 +21,99 @@ interface Props {
   onSaveRecommendation: (advice: string) => void;
 }
 
-const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targetKcal, targetProtein, activity, diary, savedRecommendation, onSaveRecommendation }) => {
-  const [loading, setLoading] = useState(true);
+const AIAdviceModal: React.FC<Props> = ({ 
+  isOpen, 
+  onClose, 
+  summary, 
+  meals, 
+  targetKcal, 
+  targetProtein, 
+  activity, 
+  diary, 
+  savedRecommendation, 
+  onSaveRecommendation 
+}) => {
+  const [mode, setMode] = useState<'review' | 'loading' | 'result'>('review');
+  const [promptText, setPromptText] = useState('');
   const [advice, setAdvice] = useState('');
-  const hasFetched = useRef(false);
+  const prevIsOpenRef = useRef(false);
 
-  const fetchAdvice = () => {
-    setLoading(true);
-    getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary)
+  const fetchAdvice = (customPrompt: string) => {
+    setMode('loading');
+    getAIRecommendation(summary, meals, targetKcal, targetProtein, activity, diary, customPrompt)
       .then(res => {
         if (res) {
           setAdvice(res);
           onSaveRecommendation(res);
+          setMode('result');
         } else {
           setAdvice("조언을 가져오는데 실패했어요. 다시 시도해볼까요?");
+          setMode('result');
         }
       })
       .catch(error => {
         console.error("Failed to load AI advice", error);
         setAdvice("데이터를 불러오는데 실패했어요.");
-      })
-      .finally(() => setLoading(false));
+        setMode('result');
+      });
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
+      // Load saved prompt from localStorage or generate default with current day stats
+      const savedPrompt = localStorage.getItem('last_used_prompt');
+      const latestDataSection = generateInputDataSection(summary, meals, targetKcal, targetProtein, activity, diary);
+      
+      if (savedPrompt) {
+        const updated = updatePromptWithLatestData(savedPrompt, latestDataSection);
+        setPromptText(updated);
+      } else {
+        const defaultPrompt = generateDefaultPrompt(summary, meals, targetKcal, targetProtein, activity, diary);
+        setPromptText(defaultPrompt);
+      }
+
+      // If a recommendation already exists for this date, show the result. Otherwise show prompt review.
       if (savedRecommendation) {
         setAdvice(savedRecommendation.advice);
-        setLoading(false);
-        hasFetched.current = true;
+        setMode('result');
       } else {
-        if (!hasFetched.current) {
-          hasFetched.current = true;
-          fetchAdvice();
-        }
+        setAdvice('');
+        setMode('review');
       }
-    } else {
-      hasFetched.current = false;
-      setAdvice('');
-      setLoading(true);
     }
-  }, [isOpen, savedRecommendation]);
+
+    if (!isOpen && prevIsOpenRef.current) {
+      setAdvice('');
+      setPromptText('');
+      setMode('review');
+    }
+
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, savedRecommendation, summary, meals, targetKcal, targetProtein, activity, diary]);
+
+  const handleGetRecommendation = () => {
+    localStorage.setItem('last_used_prompt', promptText);
+    fetchAdvice(promptText);
+  };
+
+  const handleResetToDefault = () => {
+    const defaultPrompt = generateDefaultPrompt(summary, meals, targetKcal, targetProtein, activity, diary);
+    setPromptText(defaultPrompt);
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+      <div className={`bg-white w-full ${mode === 'review' ? 'max-w-2xl' : 'max-w-md'} rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 animate-in fade-in zoom-in`}>
         <div className="p-6 bg-gradient-to-r from-indigo-600 to-teal-500 text-white flex justify-between items-center">
           <div>
-            <h3 className="font-black text-xl">AI 영양 추천 ✨</h3>
-            <p className="text-xs opacity-80 font-medium">쿠쿠님만을 위한 오늘의 한 줄 조언</p>
+            <h3 className="font-black text-xl">
+              {mode === 'review' ? 'AI 추천 프롬프트 설정 📝' : 'AI 영양 추천 ✨'}
+            </h3>
+            <p className="text-xs opacity-80 font-medium">
+              {mode === 'review' ? 'AI에게 보낼 프롬프트를 확인하고 수정하세요' : '쿠쿠님만을 위한 오늘의 한 줄 조언'}
+            </p>
           </div>
           <button onClick={onClose} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -76,13 +123,48 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
         </div>
 
         <div className="p-8 max-h-[85vh] flex flex-col">
-          {loading ? (
+          {mode === 'loading' ? (
             <div className="flex flex-col items-center py-10 space-y-4">
               <div className="relative">
                 <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
                 <span className="absolute inset-0 flex items-center justify-center text-xl animate-bounce">🤖</span>
               </div>
               <p className="text-gray-400 font-medium animate-pulse text-sm">식단을 분석하고 있어요...</p>
+            </div>
+          ) : mode === 'review' ? (
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  className="w-full h-[40vh] p-4 text-xs font-mono bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed text-slate-700"
+                  placeholder="프롬프트를 작성해주세요..."
+                />
+              </div>
+              
+              <div className="mt-6 pt-4 border-t border-gray-100 w-full flex flex-col gap-3">
+                <button 
+                  onClick={handleResetToDefault}
+                  className="w-full py-3 bg-white border-2 border-slate-200 text-slate-600 rounded-2xl text-xs font-bold hover:bg-slate-50 hover:border-slate-350 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center space-x-1"
+                >
+                  <span>🔄</span>
+                  <span>기본 프롬프트로 재설정</span>
+                </button>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={onClose}
+                    className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all active:scale-[0.98]"
+                  >
+                    취소
+                  </button>
+                  <button 
+                    onClick={handleGetRecommendation}
+                    className="flex-1 py-4 bg-gradient-to-r from-indigo-600 to-teal-500 text-white rounded-2xl font-black hover:opacity-95 transition-all active:scale-[0.98] shadow-lg shadow-indigo-100"
+                  >
+                    추천 받기 🚀
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col h-full overflow-hidden">
@@ -98,15 +180,13 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
               </div>
               
               <div className="mt-6 pt-4 border-t border-gray-100 w-full flex gap-3">
-                {savedRecommendation && (
-                  <button 
-                    onClick={fetchAdvice}
-                    className="flex-1 py-4 bg-white border-2 border-indigo-500 text-indigo-600 rounded-2xl font-black hover:bg-indigo-50 transition-all active:scale-[0.98] shadow-md flex items-center justify-center space-x-1"
-                  >
-                    <span>🔄</span>
-                    <span>다시받기</span>
-                  </button>
-                )}
+                <button 
+                  onClick={() => setMode('review')}
+                  className="flex-1 py-4 bg-white border-2 border-indigo-500 text-indigo-600 rounded-2xl font-black hover:bg-indigo-50 transition-all active:scale-[0.98] shadow-md flex items-center justify-center space-x-1"
+                >
+                  <span>🔄</span>
+                  <span>다시받기</span>
+                </button>
                 <button 
                   onClick={onClose}
                   className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
@@ -123,3 +203,4 @@ const AIAdviceModal: React.FC<Props> = ({ isOpen, onClose, summary, meals, targe
 };
 
 export default AIAdviceModal;
+
