@@ -778,7 +778,7 @@ const App: React.FC = () => {
       text += `- 활동 칼로리 : ${currentActivity.active_calories}kcal\n`;
       text += `- TEF : ${tef}kcal\n`;
       text += `- 총 소모 칼로리 : ${activityTotal}kcal\n`;
-      text += `- 최종 총 소모 칼로리 (TDEE) : ${Math.round(finalTDEE * tdeeMultiplier)}kcal\n\n`;
+      text += `- 최종 총 소모 칼로리 (TDEE) (보정치1.1적용) : ${Math.round(finalTDEE * tdeeMultiplier)}kcal\n\n`;
     }
 
     text = text.trim();
