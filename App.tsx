@@ -774,7 +774,6 @@ const App: React.FC = () => {
       const finalTDEE = activityTotal + tef;
 
       text += `[활동량]\n`;
-      text += `- 걸음 수 : ${currentActivity.steps.toLocaleString()}보\n`;
       text += `- 활동 칼로리 : ${currentActivity.active_calories}kcal\n`;
       text += `- TEF : ${tef}kcal\n`;
       text += `- 총 소모 칼로리 : ${activityTotal}kcal\n`;

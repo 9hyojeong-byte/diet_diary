@@ -27,7 +27,7 @@ export function generateInputDataSection(
   const finalTDEE = Math.round((totalActivityExpended + tef) * 1.1);
 
   const activityStr = activity
-    ? `- 걸음 수: ${activity.steps.toLocaleString()}보\n- 활동 칼로리: ${activity.active_calories}kcal\n- TEF (식이발열효과): ${tef}kcal\n- 총 소모 칼로리: ${totalActivityExpended}kcal\n- 최종 총 소모 칼로리 (TDEE) (보정치1.1): ${finalTDEE}kcal`
+    ? `- 활동 칼로리: ${activity.active_calories}kcal\n- TEF (식이발열효과): ${tef}kcal\n- 총 소모 칼로리: ${totalActivityExpended}kcal\n- 최종 총 소모 칼로리 (TDEE) (보정치1.1): ${finalTDEE}kcal`
     : '오늘의 활동 기록이 아직 없습니다.';
 
   const diaryStr = diary && diary.content.trim()

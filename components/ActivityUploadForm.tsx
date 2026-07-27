@@ -30,6 +30,7 @@ const ActivityUploadForm: React.FC<Props> = ({
   const [date, setDate] = useState(initialDate);
   const [steps, setSteps] = useState(existingActivity?.steps.toString() || '');
   const [activeCals, setActiveCals] = useState(existingActivity?.active_calories.toString() || '');
+  const [extraActiveCals, setExtraActiveCals] = useState('');
   const [totalCals, setTotalCals] = useState(existingActivity?.total_calories.toString() || '');
   const [imageUrl, setImageUrl] = useState<string | null>(existingActivity?.image_url || null);
 
@@ -77,9 +78,12 @@ const ActivityUploadForm: React.FC<Props> = ({
     const remainingHours = getRemainingHours(date);
     const remainingBmr = Math.round(bmr * (remainingHours / 24));
 
-    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량 * tdeeMultiplier + 남은 시간 추가 소모량
-    const totalCalsNum = parseFloat(totalCals) || 0;
-    const calculatedTdee = Math.round(totalCalsNum * tdeeMultiplier + remainingBmr);
+    // 3. 최종 예상 소모량(TDEE) = 현재 총 칼로리 소모량(기본 + 추가활동) * tdeeMultiplier + 남은 시간 추가 소모량
+    const baseTotalCals = parseFloat(totalCals) || 0;
+    const extraCals = parseFloat(extraActiveCals) || 0;
+    const effectiveTotalCals = baseTotalCals + extraCals;
+
+    const calculatedTdee = Math.round(effectiveTotalCals * tdeeMultiplier + remainingBmr);
 
     setTef(calculatedTef);
     setTdee(calculatedTdee);
@@ -91,7 +95,7 @@ const ActivityUploadForm: React.FC<Props> = ({
     if (showTdeeCalc) {
       handleCalculateTdee();
     }
-  }, [date, totalCals, meals]);
+  }, [date, totalCals, activeCals, extraActiveCals, meals]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,12 +140,15 @@ const ActivityUploadForm: React.FC<Props> = ({
         calorieDeficitVal = tdeeWithTefVal - intakeCalories;
       }
 
+      const finalActiveCals = (parseInt(activeCals) || 0) + (parseInt(extraActiveCals) || 0);
+      const finalTotalCals = (parseInt(totalCals) || 0) + (parseInt(extraActiveCals) || 0);
+
       await onSave({
         uuid: existingActivity?.uuid || generateUUID(),
         date,
         steps: parseInt(steps) || 0,
-        active_calories: parseInt(activeCals) || 0,
-        total_calories: parseInt(totalCals) || 0,
+        active_calories: finalActiveCals,
+        total_calories: finalTotalCals,
         tef: tefVal,
         tdee: tdeeVal,
         tdee_with_tef: tdeeWithTefVal,
@@ -185,18 +192,19 @@ const ActivityUploadForm: React.FC<Props> = ({
             />
           </div>
 
-          {/* AI 인식 데이터 */}
-          <div className="grid grid-cols-1 gap-4">
+          {/* AI 인식 데이터 & 사용자 입력 */}
+          <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">걸음수 (steps)</label>
+              <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">총 소모량 (kcal)</label>
               <input
                 type="number"
                 placeholder="0"
-                value={steps}
-                onChange={e => setSteps(e.target.value)}
-                className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-orange-500 outline-none font-black text-orange-600"
+                value={totalCals}
+                onChange={e => setTotalCals(e.target.value)}
+                className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-indigo-600"
               />
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">활동 칼로리 (kcal)</label>
@@ -209,13 +217,13 @@ const ActivityUploadForm: React.FC<Props> = ({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">총 소모량 (kcal)</label>
+                <label className="text-[10px] text-gray-400 font-bold ml-1 uppercase tracking-widest">추가활동 칼로리 (kcal)</label>
                 <input
                   type="number"
                   placeholder="0"
-                  value={totalCals}
-                  onChange={e => setTotalCals(e.target.value)}
-                  className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-indigo-600"
+                  value={extraActiveCals}
+                  onChange={e => setExtraActiveCals(e.target.value)}
+                  className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-teal-500 outline-none font-black text-teal-600"
                 />
               </div>
             </div>
@@ -227,7 +235,7 @@ const ActivityUploadForm: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={handleCalculateTdee}
-                disabled={!totalCals}
+                disabled={!totalCals && !activeCals && !extraActiveCals}
                 className="w-full py-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center space-x-1 border border-indigo-100 active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
               >
                 <span>🔥</span>
@@ -258,11 +266,15 @@ const ActivityUploadForm: React.FC<Props> = ({
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">활동칼로리</span>
-                    <span className="font-extrabold text-emerald-400">{Number(activeCals || 0).toLocaleString()} kcal</span>
+                    <span className="font-extrabold text-emerald-400">
+                      {((Number(activeCals) || 0) + (Number(extraActiveCals) || 0)).toLocaleString()} kcal
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">현재 총 소모량</span>
-                    <span className="font-extrabold text-indigo-300">{Number(totalCals || 0).toLocaleString()} kcal</span>
+                    <span className="font-extrabold text-indigo-300">
+                      {((Number(totalCals) || 0) + (Number(extraActiveCals) || 0)).toLocaleString()} kcal
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-slate-300">
                     <span className="font-medium">남은 추가소모</span>
