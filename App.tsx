@@ -979,7 +979,7 @@ const App: React.FC = () => {
       )}
 
       {/* Full-screen Sync Dim Overlay with Spinner */}
-      {syncMode === 'manual' && (
+      {isBackgroundSyncing && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-[250] animate-in fade-in duration-200">
           <div className="bg-slate-950/95 text-white px-6 py-5 rounded-3xl flex flex-col items-center space-y-4 max-w-[280px] text-center shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
             <div className="relative flex items-center justify-center w-[72px] h-[72px]">
@@ -1033,17 +1033,10 @@ const App: React.FC = () => {
           <button
             onClick={() => syncDataWithGAS(true, 'manual')}
             disabled={isBackgroundSyncing}
-            className="bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80 flex items-center space-x-1.5"
-            title={isBackgroundSyncing ? '동기화 진행 중...' : '구글 스프레드시트와 데이터 동기화'}
+            className="bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80"
+            title="구글 스프레드시트와 데이터 동기화"
           >
-            {isBackgroundSyncing ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-[11px] font-black text-white tracking-widest">동기화 중...</span>
-              </>
-            ) : (
-              <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
-            )}
+            <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
           </button>
         </div>
       </header>
