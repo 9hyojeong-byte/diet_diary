@@ -1033,14 +1033,17 @@ const App: React.FC = () => {
           <button
             onClick={() => syncDataWithGAS(true, 'manual')}
             disabled={isBackgroundSyncing}
-            className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80 ${
-              isBackgroundSyncing ? 'animate-pulse bg-white/30 border-white/30 ring-2 ring-white/30' : ''
-            }`}
+            className="bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80 flex items-center space-x-1.5"
             title={isBackgroundSyncing ? '동기화 진행 중...' : '구글 스프레드시트와 데이터 동기화'}
           >
-            <span className="text-[11px] font-black text-white tracking-widest">
-              {isBackgroundSyncing ? '동기화 중...' : '동기화'}
-            </span>
+            {isBackgroundSyncing ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-[11px] font-black text-white tracking-widest">동기화 중...</span>
+              </>
+            ) : (
+              <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
+            )}
           </button>
         </div>
       </header>
