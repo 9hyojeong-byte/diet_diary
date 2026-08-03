@@ -16,7 +16,7 @@ import DiaryModal from './components/DiaryModal';
 import ActivityLogView from './components/ActivityLogView';
 import ActivityUploadForm from './components/ActivityUploadForm';
 import SettingsModal from './components/SettingsModal';
-import { getTargetKcal, getTargetProtein, getTodayKST, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
+import { getTargetKcal, getTargetProtein, getTodayKST, getKSTDateMinusDays, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
 import {
   fetchInitialData,
   saveMealToGAS,
@@ -442,13 +442,22 @@ const App: React.FC = () => {
       const data = await fetchInitialData();
       let hasChanges = false;
 
+      // 동기화 시 최근 일주일(7일 전 ~ 오늘) 기록만 서버 데이터로 업데이트하고,
+      // 그 이전의 오래된 데이터는 캐시된 기존 데이터를 유지합니다.
+      const cutoffDate = getKSTDateMinusDays(7);
+
+      // 1. Meals
       const currentMeals = getCachedData<MealRecord[]>('cached_meals') || [];
       const fetchedMeals = data.meals || [];
-      if (JSON.stringify(fetchedMeals) !== JSON.stringify(currentMeals)) {
-        setMeals(fetchedMeals);
+      const olderCachedMeals = currentMeals.filter(m => m.date < cutoffDate);
+      const recentFetchedMeals = fetchedMeals.filter(m => m.date >= cutoffDate);
+      const finalMeals = currentMeals.length === 0 ? fetchedMeals : [...olderCachedMeals, ...recentFetchedMeals];
+      if (JSON.stringify(finalMeals) !== JSON.stringify(currentMeals)) {
+        setMeals(finalMeals);
         hasChanges = true;
       }
 
+      // 2. Ingredients (마스터 식재료 목록은 전체 업데이트)
       const currentIngredients = getCachedData<Ingredient[]>('cached_ingredients') || [];
       const fetchedIngredients = data.ingredients || [];
       if (JSON.stringify(fetchedIngredients) !== JSON.stringify(currentIngredients)) {
@@ -456,34 +465,51 @@ const App: React.FC = () => {
         hasChanges = true;
       }
 
+      // 3. Health Diaries
       const currentDiaries = getCachedData<HealthDiary[]>('cached_diaries') || [];
       const fetchedDiaries = data.diaries || [];
-      if (JSON.stringify(fetchedDiaries) !== JSON.stringify(currentDiaries)) {
-        setDiaries(fetchedDiaries);
+      const olderCachedDiaries = currentDiaries.filter(d => d.date < cutoffDate);
+      const recentFetchedDiaries = fetchedDiaries.filter(d => d.date >= cutoffDate);
+      const finalDiaries = currentDiaries.length === 0 ? fetchedDiaries : [...olderCachedDiaries, ...recentFetchedDiaries];
+      if (JSON.stringify(finalDiaries) !== JSON.stringify(currentDiaries)) {
+        setDiaries(finalDiaries);
         hasChanges = true;
       }
 
+      // 4. Activity Logs
       const currentActivities = getCachedData<ActivityLog[]>('cached_activities') || [];
       const fetchedActivities = data.activities || [];
-      if (JSON.stringify(fetchedActivities) !== JSON.stringify(currentActivities)) {
-        setActivities(fetchedActivities);
+      const olderCachedActivities = currentActivities.filter(a => a.date < cutoffDate);
+      const recentFetchedActivities = fetchedActivities.filter(a => a.date >= cutoffDate);
+      const finalActivities = currentActivities.length === 0 ? fetchedActivities : [...olderCachedActivities, ...recentFetchedActivities];
+      if (JSON.stringify(finalActivities) !== JSON.stringify(currentActivities)) {
+        setActivities(finalActivities);
         hasChanges = true;
       }
 
+      // 5. AI Recommendations
       const currentRecommendations = getCachedData<AIRecommendation[]>('cached_recommendations') || [];
       const fetchedRecommendations = data.recommendations || [];
-      if (JSON.stringify(fetchedRecommendations) !== JSON.stringify(currentRecommendations)) {
-        setRecommendations(fetchedRecommendations);
+      const olderCachedRecommendations = currentRecommendations.filter(r => r.date < cutoffDate);
+      const recentFetchedRecommendations = fetchedRecommendations.filter(r => r.date >= cutoffDate);
+      const finalRecommendations = currentRecommendations.length === 0 ? fetchedRecommendations : [...olderCachedRecommendations, ...recentFetchedRecommendations];
+      if (JSON.stringify(finalRecommendations) !== JSON.stringify(currentRecommendations)) {
+        setRecommendations(finalRecommendations);
         hasChanges = true;
       }
 
+      // 6. BMR History
       const currentBmrHistory = getCachedData<BMRRecord[]>('cached_bmr_history') || [];
       const fetchedBmrHistory = data.bmrHistory || [];
-      if (JSON.stringify(fetchedBmrHistory) !== JSON.stringify(currentBmrHistory)) {
-        setBmrHistory(fetchedBmrHistory);
+      const olderCachedBmr = currentBmrHistory.filter(b => b.effectiveDate < cutoffDate);
+      const recentFetchedBmr = fetchedBmrHistory.filter(b => b.effectiveDate >= cutoffDate);
+      const finalBmrHistory = currentBmrHistory.length === 0 ? fetchedBmrHistory : [...olderCachedBmr, ...recentFetchedBmr];
+      if (JSON.stringify(finalBmrHistory) !== JSON.stringify(currentBmrHistory)) {
+        setBmrHistory(finalBmrHistory);
         hasChanges = true;
       }
 
+      // 7. Memos (일반 메모 목록은 전체 업데이트)
       const currentMemos = getCachedData<Memo[]>('cached_memos') || [];
       const fetchedMemos = data.memos || [];
       if (JSON.stringify(fetchedMemos) !== JSON.stringify(currentMemos)) {
@@ -491,10 +517,11 @@ const App: React.FC = () => {
         hasChanges = true;
       }
 
-      const newNtMap: Record<string, NutrientTargets> = {};
+      // 8. Nutrient Targets
+      const fetchedNtMap: Record<string, NutrientTargets> = {};
       (data.nutrientTargets || []).forEach(nt => {
         if (nt && nt.date) {
-          newNtMap[nt.date] = {
+          fetchedNtMap[nt.date] = {
             kcal: Number(nt.kcal) || 1600,
             carbs: Number(nt.carbs) || 200,
             protein: Number(nt.protein) || 120,
@@ -502,32 +529,41 @@ const App: React.FC = () => {
           };
         }
       });
-
       const currentNutrientTargets = getCachedData<Record<string, NutrientTargets>>('nutrientTargetsMap') || {};
-      if (JSON.stringify(newNtMap) !== JSON.stringify(currentNutrientTargets)) {
-        setNutrientTargetsMap(prev => ({ ...prev, ...newNtMap }));
+      let finalNtMap: Record<string, NutrientTargets> = { ...currentNutrientTargets };
+      if (Object.keys(currentNutrientTargets).length === 0) {
+        finalNtMap = fetchedNtMap;
+      } else {
+        Object.keys(fetchedNtMap).forEach(date => {
+          if (date >= cutoffDate) {
+            finalNtMap[date] = fetchedNtMap[date];
+          }
+        });
+      }
+      if (JSON.stringify(finalNtMap) !== JSON.stringify(currentNutrientTargets)) {
+        setNutrientTargetsMap(finalNtMap);
         hasChanges = true;
       }
 
-      // Explicitly update cache structures to refresh the lastSyncedAt timestamp
-      setCachedData('cached_meals', fetchedMeals);
+      // Explicitly update cache structures to refresh with final merged data
+      setCachedData('cached_meals', finalMeals);
       setCachedData('cached_ingredients', fetchedIngredients);
-      setCachedData('cached_diaries', fetchedDiaries);
-      setCachedData('cached_activities', fetchedActivities);
-      setCachedData('cached_recommendations', fetchedRecommendations);
-      setCachedData('cached_bmr_history', fetchedBmrHistory);
+      setCachedData('cached_diaries', finalDiaries);
+      setCachedData('cached_activities', finalActivities);
+      setCachedData('cached_recommendations', finalRecommendations);
+      setCachedData('cached_bmr_history', finalBmrHistory);
       setCachedData('cached_memos', fetchedMemos);
-      setCachedData('nutrientTargetsMap', { ...currentNutrientTargets, ...newNtMap });
+      setCachedData('nutrientTargetsMap', finalNtMap);
 
       setSyncError(false);
       setLastSyncedTime(new Date().toISOString());
 
       if (showToastMessage) {
-        // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
+        // Removed as requested
       } else {
         const hadCache = currentMeals.length > 0 || currentIngredients.length > 0;
         if (hasChanges && hadCache) {
-          // Removed as requested: showToast("최신 정보가 업데이트되었습니다 ✨");
+          // Removed as requested
         }
       }
     } catch (error) {
@@ -997,10 +1033,14 @@ const App: React.FC = () => {
           <button
             onClick={() => syncDataWithGAS(true, 'manual')}
             disabled={isBackgroundSyncing}
-            className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80`}
-            title="구글 스프레드시트와 데이터 동기화"
+            className={`bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80 ${
+              isBackgroundSyncing ? 'animate-pulse bg-white/30 border-white/30 ring-2 ring-white/30' : ''
+            }`}
+            title={isBackgroundSyncing ? '동기화 진행 중...' : '구글 스프레드시트와 데이터 동기화'}
           >
-            <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
+            <span className="text-[11px] font-black text-white tracking-widest">
+              {isBackgroundSyncing ? '동기화 중...' : '동기화'}
+            </span>
           </button>
         </div>
       </header>

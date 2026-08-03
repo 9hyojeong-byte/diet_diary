@@ -11,6 +11,13 @@ export const getTodayKST = (): string => {
   return formatDateToYYYYMMDD(kstDate);
 };
 
+export const getKSTDateMinusDays = (days: number): string => {
+  const now = new Date();
+  const kstDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  kstDate.setDate(kstDate.getDate() - days);
+  return formatDateToYYYYMMDD(kstDate);
+};
+
 export const getKSTTime = (): string => {
   const now = new Date();
   const kstTime = now.toLocaleTimeString('en-GB', { 
