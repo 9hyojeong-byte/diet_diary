@@ -29,7 +29,9 @@ const DailySummaryImageCard = React.forwardRef<HTMLDivElement, Props>(({ date, m
 
   const actualMeals = meals.filter(m => m.status === MealStatus.ACTUAL);
   const totalKcal = actualMeals.reduce((sum, m) => sum + (Number(m.kcal) || 0), 0);
+  const totalCarbs = actualMeals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0);
   const totalProtein = actualMeals.reduce((sum, m) => sum + (Number(m.protein) || 0), 0);
+  const totalFat = actualMeals.reduce((sum, m) => sum + (Number(m.fat) || 0), 0);
 
   return (
     <div
@@ -67,7 +69,7 @@ const DailySummaryImageCard = React.forwardRef<HTMLDivElement, Props>(({ date, m
                 <span style={{ width: 8, height: 8, borderRadius: 4, background: DOT_COLOR[type], marginRight: 8, display: 'inline-block' }} />
                 {type}
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5' }}>
                 {Math.round(kcal)}kcal · 단백질 {Math.round(protein)}g
               </div>
             </div>
@@ -86,7 +88,7 @@ const DailySummaryImageCard = React.forwardRef<HTMLDivElement, Props>(({ date, m
                   }}
                 >
                   <span style={{ color: '#374151' }}>{getIngredientDisplayName(m)}</span>
-                  <span style={{ fontWeight: 700, color: '#4f46e5' }}>수량:{m.amount}</span>
+                  <span style={{ color: '#374151' }}>수량:{m.amount}</span>
                 </div>
               ))
             )}
@@ -106,7 +108,9 @@ const DailySummaryImageCard = React.forwardRef<HTMLDivElement, Props>(({ date, m
       >
         <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 700, letterSpacing: 1 }}>총 섭취</div>
         <div style={{ fontSize: 30, fontWeight: 900, marginTop: 4 }}>{Math.round(totalKcal)} kcal</div>
-        <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, opacity: 0.9 }}>단백질 {Math.round(totalProtein)}g</div>
+        <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, opacity: 0.9 }}>
+          탄수화물 {Math.round(totalCarbs)}g · 단백질 {Math.round(totalProtein)}g · 지방 {Math.round(totalFat)}g
+        </div>
       </div>
     </div>
   );

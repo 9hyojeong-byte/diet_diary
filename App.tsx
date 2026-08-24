@@ -797,8 +797,7 @@ const App: React.FC = () => {
     }
 
     const typeOrder = [MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER];
-    let text = `나의 식단, 건강일기, 활동량기록이야.꾸준한 다이어트(한달에 -2kg목표) 를 위한 하루로써 어떤지 평가하고 조언해줘.\n\n`;
-    text += `[${selectedDate} ${includePlanned ? '예정 ' : ''}기록]\n\n`;
+    let text = `[${selectedDate} ${includePlanned ? '예정 ' : ''}식단]\n\n`;
 
     if (mealsToCopy.length > 0) {
       text += `[식단]\n`;

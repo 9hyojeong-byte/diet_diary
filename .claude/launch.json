@@ -4,8 +4,8 @@
     {
       "name": "diet-diary-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeArgs": ["run", "dev", "--", "--port", "1234"],
+      "port": 1234
     }
   ]
 }
