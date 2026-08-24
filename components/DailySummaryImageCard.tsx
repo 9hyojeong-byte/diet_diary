@@ -85,7 +85,7 @@ const DailySummaryImageCard = React.forwardRef<HTMLDivElement, Props>(({ date, m
                     borderTop: '1px solid #f3f4f6'
                   }}
                 >
-                  <span style={{ color: '#374151' }}>{getIngredientDisplayName(m)} ({m.amount === 1 ? '1' : `${m.amount}g`})</span>
+                  <span style={{ color: '#374151' }}>{getIngredientDisplayName(m)} (수량:{m.amount})</span>
                   <span style={{ fontWeight: 700, color: '#4f46e5' }}>{Math.round(m.kcal)}kcal</span>
                 </div>
               ))
