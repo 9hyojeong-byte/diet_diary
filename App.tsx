@@ -16,6 +16,8 @@ import DiaryModal from './components/DiaryModal';
 import ActivityLogView from './components/ActivityLogView';
 import ActivityUploadForm from './components/ActivityUploadForm';
 import SettingsModal from './components/SettingsModal';
+import DailySummaryImageCard from './components/DailySummaryImageCard';
+import { toPng } from 'html-to-image';
 import { getTargetKcal, getTargetProtein, getTodayKST, getKSTDateMinusDays, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
 import {
   fetchInitialData,
@@ -846,6 +848,22 @@ const App: React.FC = () => {
     });
   }, [filteredMeals, selectedDate, summary, getIngredientDisplayName, currentDiary, currentActivity, tdeeMultiplier]);
 
+  const imageCardRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadImage = useCallback(async () => {
+    if (!imageCardRef.current) return;
+    try {
+      const dataUrl = await toPng(imageCardRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const link = document.createElement('a');
+      link.download = `식단기록_${selectedDate}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error("Failed to generate meal image", error);
+      showToast("이미지 생성에 실패했습니다.");
+    }
+  }, [selectedDate]);
+
   const onSaveDiary = useCallback(async (content: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
     const prevDiaries = [...diaries];
@@ -1117,6 +1135,10 @@ const App: React.FC = () => {
                   <span className="text-sm">예상 포함 복사</span>
                 </button>
               </div>
+              <button onClick={handleDownloadImage} className="w-full py-4 bg-white border-2 border-emerald-400 text-emerald-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center space-x-2">
+                <span className="text-lg">📸</span>
+                <span className="text-sm">식단 이미지 다운로드</span>
+              </button>
               <button onClick={() => setAdviceModalOpen(true)} className="w-full py-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center space-x-2"><span className="text-xl">✨</span><span>AI 영양 추천 받기</span></button>
             </div>
           </div>
@@ -1229,6 +1251,9 @@ const App: React.FC = () => {
           memo={currentPinnedMemo}
         />
       )}
+      <div style={{ position: 'fixed', top: 0, left: -9999, pointerEvents: 'none' }}>
+        <DailySummaryImageCard ref={imageCardRef} date={selectedDate} meals={filteredMeals} ingredients={ingredients} />
+      </div>
     </div>
   );
 };
