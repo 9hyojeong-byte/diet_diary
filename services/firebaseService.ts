@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { MealRecord, Ingredient, HealthDiary, Memo, ActivityLog, AIRecommendation, NutrientTargetRecord, BMRRecord } from '../types';
 
@@ -22,7 +22,10 @@ async function removeDoc(collectionName: string, id: string): Promise<boolean> {
   }
 }
 
-export async function fetchInitialData(): Promise<{
+// meals/diaries/activity_logs/ai_recommendations are date-scoped and can grow without bound,
+// so routine syncs only pull `sinceDate` onward. ingredients/nutrient_targets/bmr_history/memos
+// stay small and are needed in full (e.g. a BMR or target change from months ago still applies today).
+export async function fetchInitialData(sinceDate: string): Promise<{
   meals: MealRecord[],
   ingredients: Ingredient[],
   diaries: HealthDiary[],
@@ -42,11 +45,11 @@ export async function fetchInitialData(): Promise<{
     bmrHistorySnap,
     memosSnap
   ] = await Promise.all([
-    getDocs(collection(db, 'meals')),
+    getDocs(query(collection(db, 'meals'), where('date', '>=', sinceDate))),
     getDocs(collection(db, 'ingredients')),
-    getDocs(collection(db, 'diaries')),
-    getDocs(collection(db, 'activity_logs')),
-    getDocs(collection(db, 'ai_recommendations')),
+    getDocs(query(collection(db, 'diaries'), where('date', '>=', sinceDate))),
+    getDocs(query(collection(db, 'activity_logs'), where('date', '>=', sinceDate))),
+    getDocs(query(collection(db, 'ai_recommendations'), where('date', '>=', sinceDate))),
     getDocs(collection(db, 'nutrient_targets')),
     getDocs(collection(db, 'bmr_history')),
     getDocs(collection(db, 'memos'))
@@ -61,6 +64,34 @@ export async function fetchInitialData(): Promise<{
     nutrientTargets: nutrientTargetsSnap.docs.map(d => d.data() as NutrientTargetRecord),
     bmrHistory: bmrHistorySnap.docs.map(d => d.data() as BMRRecord),
     memos: memosSnap.docs.map(d => d.data() as Memo)
+  };
+}
+
+// On-demand fetch for a single calendar month (e.g. when browsing to an older month
+// that fetchInitialData's rolling window didn't cover), keyed as "YYYY-MM".
+export async function fetchMonthData(yearMonth: string): Promise<{
+  meals: MealRecord[],
+  diaries: HealthDiary[],
+  activities: ActivityLog[],
+  recommendations: AIRecommendation[]
+}> {
+  const [year, month] = yearMonth.split('-').map(Number);
+  const start = `${yearMonth}-01`;
+  const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
+  const end = `${nextMonth}-01`;
+
+  const [mealsSnap, diariesSnap, activitiesSnap, recommendationsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'meals'), where('date', '>=', start), where('date', '<', end))),
+    getDocs(query(collection(db, 'diaries'), where('date', '>=', start), where('date', '<', end))),
+    getDocs(query(collection(db, 'activity_logs'), where('date', '>=', start), where('date', '<', end))),
+    getDocs(query(collection(db, 'ai_recommendations'), where('date', '>=', start), where('date', '<', end)))
+  ]);
+
+  return {
+    meals: mealsSnap.docs.map(d => d.data() as MealRecord),
+    diaries: diariesSnap.docs.map(d => d.data() as HealthDiary),
+    activities: activitiesSnap.docs.map(d => d.data() as ActivityLog),
+    recommendations: recommendationsSnap.docs.map(d => d.data() as AIRecommendation)
   };
 }
 

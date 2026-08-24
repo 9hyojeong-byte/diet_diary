@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { MealRecord, HealthDiary, ActivityLog } from '../types';
 import { getTodayKST, formatDateToYYYYMMDD } from '../utils';
 
@@ -9,9 +9,10 @@ interface CalendarProps {
   meals: MealRecord[];
   diaries: HealthDiary[];
   activities: ActivityLog[];
+  onViewMonthChange?: (year: number, month0: number) => void;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, diaries, activities }) => {
+const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, diaries, activities, onViewMonthChange }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const parseLocalDate = (dateStr: string) => {
@@ -20,6 +21,10 @@ const Calendar: React.FC<CalendarProps> = ({ selectedDate, onSelectDate, meals, 
   };
 
   const [viewMonth, setViewMonth] = useState(parseLocalDate(selectedDate));
+
+  useEffect(() => {
+    onViewMonthChange?.(viewMonth.getFullYear(), viewMonth.getMonth());
+  }, [viewMonth, onViewMonthChange]);
 
   const todayStr = getTodayKST();
   const weekDays = ['월', '화', '수', '목', '금', '토', '일'];

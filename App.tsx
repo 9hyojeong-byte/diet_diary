@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { MealRecord, Ingredient, MealType, MealStatus, HealthDiary, NutrientTargets, BMRRecord, Memo } from './types';
 import Calendar from './components/Calendar';
 import DailySummaryView from './components/DailySummary';
@@ -19,6 +19,7 @@ import SettingsModal from './components/SettingsModal';
 import { getTargetKcal, getTargetProtein, getTodayKST, getKSTDateMinusDays, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
 import {
   fetchInitialData,
+  fetchMonthData,
   saveMeal,
   updateMeal,
   deleteMeal,
@@ -44,6 +45,29 @@ import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
 import { getCachedData, setCachedData, getLastSyncedAt } from './services/cacheService';
 
 const TRIAL_MESSAGE = "체험 모드 안내\n이 버전은 공개용 포트폴리오 버전입니다. 데이터의 보안과 무결성을 위해 기록 수정 기능이 제한되어 있습니다.";
+
+// 평소 동기화(최초 진입/수동 동기화 버튼)는 이 기간만 서버에서 다시 읽어옵니다.
+// 그보다 오래된 기록은 달력에서 해당 월로 이동할 때만 별도로 불러옵니다.
+const SYNC_WINDOW_DAYS = 30;
+
+function mergeByKey<T>(existing: T[], incoming: T[], keyFn: (item: T) => string): T[] {
+  const map = new Map<string, T>();
+  existing.forEach(item => map.set(keyFn(item), item));
+  incoming.forEach(item => map.set(keyFn(item), item));
+  return Array.from(map.values());
+}
+
+function getMonthsBetween(startDateStr: string, endDateStr: string): string[] {
+  const months: string[] = [];
+  let [y, m] = startDateStr.split('-').slice(0, 2).map(Number);
+  const [endY, endM] = endDateStr.split('-').slice(0, 2).map(Number);
+  while (y < endY || (y === endY && m <= endM)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
+}
 
 
 const FOOD_EMOJIS = ['🥗', '🍎', '🥑', '🍗', '🍳', '🥛', '🍣', '🍱', '🥣', '🥦', '🍌', '🥪', '🥙', '🥗'];
@@ -410,8 +434,6 @@ const App: React.FC = () => {
       const success = await saveBMR(newRecord);
       if (success) {
         showToast("기초대사량이 성공적으로 저장되었습니다. 💾");
-        // Pull latest to sync
-        await syncData(false, 'quiet');
         return true;
       } else {
         // Rollback optimistic update
@@ -436,22 +458,25 @@ const App: React.FC = () => {
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
+  // 달력에서 이미 불러온 월("YYYY-MM")을 기억해서, 같은 월을 다시 볼 때 재조회하지 않습니다.
+  const loadedMonthsRef = useRef<Set<string>>(
+    new Set(getMonthsBetween(getKSTDateMinusDays(SYNC_WINDOW_DAYS), getTodayKST()))
+  );
+
   const syncData = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' | 'none' = 'none') => {
     setSyncMode(mode);
     try {
-      const data = await fetchInitialData();
+      // 최초 진입/수동 동기화는 최근 SYNC_WINDOW_DAYS일치만 서버에서 다시 읽어오고,
+      // 그 이전의 오래된 데이터는 캐시된 기존 데이터(또는 달력에서 개별로 불러온 옛 기록)를 유지합니다.
+      const cutoffDate = getKSTDateMinusDays(SYNC_WINDOW_DAYS);
+      const data = await fetchInitialData(cutoffDate);
       let hasChanges = false;
-
-      // 동기화 시 최근 일주일(7일 전 ~ 오늘) 기록만 서버 데이터로 업데이트하고,
-      // 그 이전의 오래된 데이터는 캐시된 기존 데이터를 유지합니다.
-      const cutoffDate = getKSTDateMinusDays(7);
 
       // 1. Meals
       const currentMeals = getCachedData<MealRecord[]>('cached_meals') || [];
       const fetchedMeals = data.meals || [];
       const olderCachedMeals = currentMeals.filter(m => m.date < cutoffDate);
-      const recentFetchedMeals = fetchedMeals.filter(m => m.date >= cutoffDate);
-      const finalMeals = currentMeals.length === 0 ? fetchedMeals : [...olderCachedMeals, ...recentFetchedMeals];
+      const finalMeals = currentMeals.length === 0 ? fetchedMeals : [...olderCachedMeals, ...fetchedMeals];
       if (JSON.stringify(finalMeals) !== JSON.stringify(currentMeals)) {
         setMeals(finalMeals);
         hasChanges = true;
@@ -469,8 +494,7 @@ const App: React.FC = () => {
       const currentDiaries = getCachedData<HealthDiary[]>('cached_diaries') || [];
       const fetchedDiaries = data.diaries || [];
       const olderCachedDiaries = currentDiaries.filter(d => d.date < cutoffDate);
-      const recentFetchedDiaries = fetchedDiaries.filter(d => d.date >= cutoffDate);
-      const finalDiaries = currentDiaries.length === 0 ? fetchedDiaries : [...olderCachedDiaries, ...recentFetchedDiaries];
+      const finalDiaries = currentDiaries.length === 0 ? fetchedDiaries : [...olderCachedDiaries, ...fetchedDiaries];
       if (JSON.stringify(finalDiaries) !== JSON.stringify(currentDiaries)) {
         setDiaries(finalDiaries);
         hasChanges = true;
@@ -480,8 +504,7 @@ const App: React.FC = () => {
       const currentActivities = getCachedData<ActivityLog[]>('cached_activities') || [];
       const fetchedActivities = data.activities || [];
       const olderCachedActivities = currentActivities.filter(a => a.date < cutoffDate);
-      const recentFetchedActivities = fetchedActivities.filter(a => a.date >= cutoffDate);
-      const finalActivities = currentActivities.length === 0 ? fetchedActivities : [...olderCachedActivities, ...recentFetchedActivities];
+      const finalActivities = currentActivities.length === 0 ? fetchedActivities : [...olderCachedActivities, ...fetchedActivities];
       if (JSON.stringify(finalActivities) !== JSON.stringify(currentActivities)) {
         setActivities(finalActivities);
         hasChanges = true;
@@ -491,19 +514,15 @@ const App: React.FC = () => {
       const currentRecommendations = getCachedData<AIRecommendation[]>('cached_recommendations') || [];
       const fetchedRecommendations = data.recommendations || [];
       const olderCachedRecommendations = currentRecommendations.filter(r => r.date < cutoffDate);
-      const recentFetchedRecommendations = fetchedRecommendations.filter(r => r.date >= cutoffDate);
-      const finalRecommendations = currentRecommendations.length === 0 ? fetchedRecommendations : [...olderCachedRecommendations, ...recentFetchedRecommendations];
+      const finalRecommendations = currentRecommendations.length === 0 ? fetchedRecommendations : [...olderCachedRecommendations, ...fetchedRecommendations];
       if (JSON.stringify(finalRecommendations) !== JSON.stringify(currentRecommendations)) {
         setRecommendations(finalRecommendations);
         hasChanges = true;
       }
 
-      // 6. BMR History
+      // 6. BMR History (항상 전체 조회 — 지금 적용되는 값이 몇 달 전 기록일 수 있음)
       const currentBmrHistory = getCachedData<BMRRecord[]>('cached_bmr_history') || [];
-      const fetchedBmrHistory = data.bmrHistory || [];
-      const olderCachedBmr = currentBmrHistory.filter(b => b.effectiveDate < cutoffDate);
-      const recentFetchedBmr = fetchedBmrHistory.filter(b => b.effectiveDate >= cutoffDate);
-      const finalBmrHistory = currentBmrHistory.length === 0 ? fetchedBmrHistory : [...olderCachedBmr, ...recentFetchedBmr];
+      const finalBmrHistory = data.bmrHistory || [];
       if (JSON.stringify(finalBmrHistory) !== JSON.stringify(currentBmrHistory)) {
         setBmrHistory(finalBmrHistory);
         hasChanges = true;
@@ -517,7 +536,7 @@ const App: React.FC = () => {
         hasChanges = true;
       }
 
-      // 8. Nutrient Targets
+      // 8. Nutrient Targets (항상 전체 조회 — 지금 적용되는 값이 몇 달 전 기록일 수 있음)
       const fetchedNtMap: Record<string, NutrientTargets> = {};
       (data.nutrientTargets || []).forEach(nt => {
         if (nt && nt.date) {
@@ -530,18 +549,8 @@ const App: React.FC = () => {
         }
       });
       const currentNutrientTargets = getCachedData<Record<string, NutrientTargets>>('nutrientTargetsMap') || {};
-      let finalNtMap: Record<string, NutrientTargets> = { ...currentNutrientTargets };
-      if (Object.keys(currentNutrientTargets).length === 0) {
-        finalNtMap = fetchedNtMap;
-      } else {
-        Object.keys(fetchedNtMap).forEach(date => {
-          if (date >= cutoffDate) {
-            finalNtMap[date] = fetchedNtMap[date];
-          }
-        });
-      }
-      if (JSON.stringify(finalNtMap) !== JSON.stringify(currentNutrientTargets)) {
-        setNutrientTargetsMap(finalNtMap);
+      if (JSON.stringify(fetchedNtMap) !== JSON.stringify(currentNutrientTargets)) {
+        setNutrientTargetsMap(fetchedNtMap);
         hasChanges = true;
       }
 
@@ -553,7 +562,7 @@ const App: React.FC = () => {
       setCachedData('cached_recommendations', finalRecommendations);
       setCachedData('cached_bmr_history', finalBmrHistory);
       setCachedData('cached_memos', fetchedMemos);
-      setCachedData('nutrientTargetsMap', finalNtMap);
+      setCachedData('nutrientTargetsMap', fetchedNtMap);
 
       setSyncError(false);
       setLastSyncedTime(new Date().toISOString());
@@ -576,6 +585,23 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // 달력에서 아직 불러오지 않은 월로 이동하면, 그 달의 기록만 추가로 조회해서 합칩니다.
+  const handleViewMonthChange = useCallback(async (year: number, month0: number) => {
+    const yearMonth = `${year}-${String(month0 + 1).padStart(2, '0')}`;
+    if (loadedMonthsRef.current.has(yearMonth)) return;
+    loadedMonthsRef.current.add(yearMonth);
+    try {
+      const monthData = await fetchMonthData(yearMonth);
+      if (monthData.meals.length) setMeals(prev => mergeByKey(prev, monthData.meals, m => m.uuid));
+      if (monthData.diaries.length) setDiaries(prev => mergeByKey(prev, monthData.diaries, d => d.date));
+      if (monthData.activities.length) setActivities(prev => mergeByKey(prev, monthData.activities, a => a.uuid));
+      if (monthData.recommendations.length) setRecommendations(prev => mergeByKey(prev, monthData.recommendations, r => r.date));
+    } catch (error) {
+      console.error(`Failed to load data for ${yearMonth}`, error);
+      loadedMonthsRef.current.delete(yearMonth);
+    }
+  }, []);
+
   const onUpdateNutrientTargets = async (newTargets: NutrientTargets) => {
     const newMap = { ...nutrientTargetsMap, [selectedDate]: newTargets };
     setNutrientTargetsMap(newMap);
@@ -584,8 +610,6 @@ const App: React.FC = () => {
     try {
       await saveNutrientTargets({ ...newTargets, date: selectedDate });
       showToast(`${selectedDate} 목표 영양분이 수정되었습니다. ✨`);
-      // Update from DB to sync changes
-      await syncData(false);
     } catch (error) {
       console.error("Failed to save nutrient targets to Firestore", error);
       showToast("로컬에 저장되었습니다. 서버 저장 실패 😅");
@@ -678,13 +702,12 @@ const App: React.FC = () => {
       const success = isUpdate ? await updateMeal(newMeal) : await saveMeal(newMeal);
       if (!success) throw new Error("Server storage failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
-      await syncData(false);
     } catch (error) {
       setMeals(prevMeals);
       setIngredients(prevIngredients);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, ingredients, isAdmin, syncData]);
+  }, [meals, ingredients, isAdmin]);
 
   const onSaveMultipleMeals = useCallback(async (newMeals: MealRecord[]) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -699,13 +722,12 @@ const App: React.FC = () => {
         const matched = newMeals.find(nm => String(nm.uuid) === String(m.uuid));
         return matched ? { ...m, pending: false } : m;
       }));
-      await syncData(false);
     } catch (error) {
       console.error("Failed to save multiple meals", error);
       setMeals(prevMeals);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, isAdmin, syncData]);
+  }, [meals, isAdmin]);
 
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -726,12 +748,11 @@ const App: React.FC = () => {
       const success = await updateMeal(updatedMeal);
       if (!success) throw new Error("Update failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
-      await syncData(false);
     } catch (err) {
       setMeals(prevMeals);
       showToast("상태 변경에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, isAdmin, syncData]);
+  }, [meals, isAdmin]);
 
   const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
@@ -742,7 +763,6 @@ const App: React.FC = () => {
     try {
       const success = await deleteMeal(uuid);
       if (success) {
-        await syncData(false);
         return true;
       } else throw new Error("Delete failed");
     } catch (err) {
@@ -750,7 +770,7 @@ const App: React.FC = () => {
       showToast("삭제에 실패했습니다. 다시 시도해 주세요.");
       return false;
     }
-  }, [meals, isAdmin, syncData]);
+  }, [meals, isAdmin]);
 
   const getIngredientDisplayName = useCallback((meal: MealRecord) => {
     const targetUuid = String(meal.ingredient_uuid || '').trim();
@@ -861,7 +881,6 @@ const App: React.FC = () => {
       if (success) {
         setDiaries(prev => prev.map(d => d.uuid === newDiary.uuid ? { ...newDiary, pending: false } : d));
         showToast(isEdit ? "건강 일기가 수정되었습니다! ✨" : "건강 일기가 저장되었습니다! ✨");
-        await syncData(false);
       } else {
         throw new Error("Diary persistent operation returned false");
       }
@@ -869,7 +888,7 @@ const App: React.FC = () => {
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");
     }
-  }, [selectedDate, currentDiary, diaries, isAdmin, syncData]);
+  }, [selectedDate, currentDiary, diaries, isAdmin]);
 
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -886,13 +905,12 @@ const App: React.FC = () => {
       if (success) {
         setActivities(prev => prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: false } : a));
         showToast(isUpdate ? "활동 기록이 수정되었습니다! 💪" : "활동 기록이 저장되었습니다! 💪");
-        await syncData(false);
       } else throw new Error("Activity storage failed");
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 저장에 실패했습니다.");
     }
-  }, [activities, isAdmin, syncData]);
+  }, [activities, isAdmin]);
 
   const onDeleteActivity = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -903,12 +921,11 @@ const App: React.FC = () => {
       const success = await deleteActivity(uuid);
       if (!success) throw new Error("Activity deletion failed");
       showToast("활동 기록이 삭제되었습니다.");
-      await syncData(false);
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 삭제에 실패했습니다.");
     }
-  }, [activities, isAdmin, syncData]);
+  }, [activities, isAdmin]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -920,12 +937,11 @@ const App: React.FC = () => {
     try {
       const success = await updateIngredientBookmark(uuid, next);
       if (!success) throw new Error("Bookmark failed");
-      await syncData(false);
     } catch (err) {
       setIngredients(prevIngredients);
       showToast("즐겨찾기 상태 변경에 실패했습니다.");
     }
-  }, [ingredients, isAdmin, syncData]);
+  }, [ingredients, isAdmin]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); safeLocalStorage.setItem('isAdmin', 'true'); } };
   const handleLogout = () => {
@@ -1062,7 +1078,7 @@ const App: React.FC = () => {
           <DashboardSkeleton />
         ) : currentView === 'main' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} />
+            <Calendar selectedDate={selectedDate} onSelectDate={setSelectedDate} meals={meals} diaries={diaries} activities={activities} onViewMonthChange={handleViewMonthChange} />
             <DailySummaryView
               summary={summary}
               selectedDate={selectedDate}
@@ -1112,20 +1128,17 @@ const App: React.FC = () => {
             onAddIngredient={async (ing) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => [...p, ing]);
-              const success = await saveIngredient(ing);
-              if (success) await syncData(false);
+              await saveIngredient(ing);
             }}
             onUpdateIngredient={async (ing) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i));
-              const success = await updateIngredient(ing);
-              if (success) await syncData(false);
+              await updateIngredient(ing);
             }}
             onDeleteIngredient={async (id) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => p.filter(i => i.uuid !== id));
-              const success = await deleteIngredient(id);
-              if (success) await syncData(false);
+              await deleteIngredient(id);
             }}
             trialMessage={TRIAL_MESSAGE}
           />
