@@ -67,11 +67,13 @@ export async function fetchInitialData(): Promise<{
 // --- Meals ---
 
 export async function saveMeal(meal: MealRecord): Promise<boolean> {
-  return saveDoc('meals', meal.uuid, meal);
+  const { pending, ...data } = meal;
+  return saveDoc('meals', meal.uuid, data);
 }
 
 export async function updateMeal(meal: MealRecord): Promise<boolean> {
-  return saveDoc('meals', meal.uuid, meal);
+  const { pending, ...data } = meal;
+  return saveDoc('meals', meal.uuid, data);
 }
 
 export async function deleteMeal(uuid: string): Promise<boolean> {
@@ -105,21 +107,25 @@ export async function updateIngredientBookmark(uuid: string, isBookmarked: boole
 // --- Diaries (one per date; date is the document id) ---
 
 export async function saveDiary(diary: HealthDiary): Promise<boolean> {
-  return saveDoc('diaries', diary.date, diary);
+  const { pending, ...data } = diary;
+  return saveDoc('diaries', diary.date, data);
 }
 
 export async function updateDiary(diary: HealthDiary): Promise<boolean> {
-  return saveDoc('diaries', diary.date, diary);
+  const { pending, ...data } = diary;
+  return saveDoc('diaries', diary.date, data);
 }
 
 // --- Activity Logs ---
 
 export async function saveActivity(activity: ActivityLog): Promise<boolean> {
-  return saveDoc('activity_logs', activity.uuid, activity);
+  const { pending, ...data } = activity;
+  return saveDoc('activity_logs', activity.uuid, data);
 }
 
 export async function updateActivity(activity: ActivityLog): Promise<boolean> {
-  return saveDoc('activity_logs', activity.uuid, activity);
+  const { pending, ...data } = activity;
+  return saveDoc('activity_logs', activity.uuid, data);
 }
 
 export async function deleteActivity(uuid: string): Promise<boolean> {
