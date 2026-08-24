@@ -19,25 +19,25 @@ import SettingsModal from './components/SettingsModal';
 import { getTargetKcal, getTargetProtein, getTodayKST, getKSTDateMinusDays, formatDateToYYYYMMDD, getKSTTime, getKSTFullTime, formatTime, generateUUID } from './utils';
 import {
   fetchInitialData,
-  saveMealToGAS,
-  updateMealInGAS,
-  deleteMealFromGAS,
-  saveIngredientToGAS,
-  updateIngredientInGAS,
-  deleteIngredientFromGAS,
+  saveMeal,
+  updateMeal,
+  deleteMeal,
+  saveIngredient,
+  updateIngredient,
+  deleteIngredient,
   updateIngredientBookmark,
-  saveDiaryToGAS,
-  updateDiaryInGAS,
-  saveActivityToGAS,
-  updateActivityInGAS,
-  deleteActivityFromGAS,
-  saveAIRecommendationToGAS,
-  saveNutrientTargetsToGAS,
-  saveBMRToGAS,
-  saveMemoToGAS,
-  updateMemoInGAS,
-  deleteMemoFromGAS
-} from './services/gasService';
+  saveDiary,
+  updateDiary,
+  saveActivity,
+  updateActivity,
+  deleteActivity,
+  saveAIRecommendation,
+  saveNutrientTargets,
+  saveBMR,
+  saveMemo,
+  updateMemo,
+  deleteMemo
+} from './services/firebaseService';
 import PinnedMemoModal from './components/PinnedMemoModal';
 
 import { ActivityLog, AIRecommendation, NutrientTargetRecord } from './types';
@@ -344,9 +344,9 @@ const App: React.FC = () => {
       const updatedMemo: Memo = { ...editingMemo, content, updatedAt: now };
       setMemos(prev => prev.map(m => m.id === updatedMemo.id ? updatedMemo : m));
       try {
-        await updateMemoInGAS(updatedMemo);
+        await updateMemo(updatedMemo);
       } catch (error) {
-        console.error("Failed to update memo in GAS", error);
+        console.error("Failed to update memo in Firestore", error);
       }
     } else {
       const newMemo: Memo = {
@@ -358,9 +358,9 @@ const App: React.FC = () => {
       };
       setMemos(prev => [newMemo, ...prev]);
       try {
-        await saveMemoToGAS(newMemo);
+        await saveMemo(newMemo);
       } catch (error) {
-        console.error("Failed to save memo in GAS", error);
+        console.error("Failed to save memo in Firestore", error);
       }
     }
   }, []);
@@ -368,9 +368,9 @@ const App: React.FC = () => {
   const onDeleteMemo = useCallback(async (id: string) => {
     setMemos(prev => prev.filter(m => m.id !== id));
     try {
-      await deleteMemoFromGAS(id);
+      await deleteMemo(id);
     } catch (error) {
-      console.error("Failed to delete memo in GAS", error);
+      console.error("Failed to delete memo in Firestore", error);
     }
   }, []);
 
@@ -388,9 +388,9 @@ const App: React.FC = () => {
     setMemos(prev => prev.map(m => m.id === id ? updated : m));
 
     try {
-      await updateMemoInGAS(updated);
+      await updateMemo(updated);
     } catch (error) {
-      console.error("Failed to update memo pin in GAS", error);
+      console.error("Failed to update memo pin in Firestore", error);
     }
   }, [memos]);
 
@@ -407,11 +407,11 @@ const App: React.FC = () => {
     setBmrHistory(prev => [...prev, newRecord]);
 
     try {
-      const success = await saveBMRToGAS(newRecord);
+      const success = await saveBMR(newRecord);
       if (success) {
         showToast("기초대사량이 성공적으로 저장되었습니다. 💾");
         // Pull latest to sync
-        await syncDataWithGAS(false, 'quiet');
+        await syncData(false, 'quiet');
         return true;
       } else {
         // Rollback optimistic update
@@ -436,7 +436,7 @@ const App: React.FC = () => {
 
   const nutrientTargets = useMemo(() => getTargetForDate(selectedDate), [selectedDate, getTargetForDate]);
 
-  const syncDataWithGAS = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' | 'none' = 'none') => {
+  const syncData = useCallback(async (showToastMessage = false, mode: 'manual' | 'quiet' | 'none' = 'none') => {
     setSyncMode(mode);
     try {
       const data = await fetchInitialData();
@@ -567,7 +567,7 @@ const App: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error("Failed to load data from GAS", error);
+      console.error("Failed to load data from Firestore", error);
       setSyncError(true);
       showToast("데이터를 동기화하는 중 오류가 발생했습니다.");
     } finally {
@@ -582,12 +582,12 @@ const App: React.FC = () => {
     safeLocalStorage.setItem('nutrientTargetsMap', JSON.stringify(newMap));
 
     try {
-      await saveNutrientTargetsToGAS({ ...newTargets, date: selectedDate });
+      await saveNutrientTargets({ ...newTargets, date: selectedDate });
       showToast(`${selectedDate} 목표 영양분이 수정되었습니다. ✨`);
       // Update from DB to sync changes
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (error) {
-      console.error("Failed to save nutrient targets to GAS", error);
+      console.error("Failed to save nutrient targets to Firestore", error);
       showToast("로컬에 저장되었습니다. 서버 저장 실패 😅");
     }
   };
@@ -618,8 +618,8 @@ const App: React.FC = () => {
     // 앱 처음 진입 시 백그라운드 동기화를 실행하여 서버에서 최신 데이터를 가져옵니다.
     // 캐시가 있는 경우, 이미 useState 초기값으로 로드되어 있으며 isInitialLoad가 false이므로 화면이 즉시 렌더링됩니다.
     // 캐시가 없는 경우, isInitialLoad가 true이므로 스켈레톤이 표시됩니다.
-    syncDataWithGAS(false, 'quiet');
-  }, [syncDataWithGAS]);
+    syncData(false, 'quiet');
+  }, [syncData]);
 
   useEffect(() => {
     if (isBackgroundSyncing) {
@@ -674,17 +674,17 @@ const App: React.FC = () => {
     setMeals(prev => isUpdate ? prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...newMeal, pending: true } : m) : [...prev, { ...newMeal, pending: true }]);
     if (newIngredient) setIngredients(prev => [...prev, newIngredient]);
     try {
-      if (newIngredient) await saveIngredientToGAS(newIngredient);
-      const success = isUpdate ? await updateMealInGAS(newMeal) : await saveMealToGAS(newMeal);
+      if (newIngredient) await saveIngredient(newIngredient);
+      const success = isUpdate ? await updateMeal(newMeal) : await saveMeal(newMeal);
       if (!success) throw new Error("Server storage failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(newMeal.uuid) ? { ...m, pending: false } : m));
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (error) {
       setMeals(prevMeals);
       setIngredients(prevIngredients);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, ingredients, isAdmin, syncDataWithGAS]);
+  }, [meals, ingredients, isAdmin, syncData]);
 
   const onSaveMultipleMeals = useCallback(async (newMeals: MealRecord[]) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -692,20 +692,20 @@ const App: React.FC = () => {
     setMeals(prev => [...prev, ...newMeals.map(m => ({ ...m, pending: true }))]);
     try {
       for (const meal of newMeals) {
-        const success = await saveMealToGAS(meal);
+        const success = await saveMeal(meal);
         if (!success) throw new Error("Server storage failed for meal: " + meal.uuid);
       }
       setMeals(prev => prev.map(m => {
         const matched = newMeals.find(nm => String(nm.uuid) === String(m.uuid));
         return matched ? { ...m, pending: false } : m;
       }));
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (error) {
       console.error("Failed to save multiple meals", error);
       setMeals(prevMeals);
       showToast("저장에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, isAdmin, syncDataWithGAS]);
+  }, [meals, isAdmin, syncData]);
 
   const handleSetMealStatus = useCallback(async (uuid: string, status: MealStatus) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -723,15 +723,15 @@ const App: React.FC = () => {
     const updatedMeal: MealRecord = { ...target, status, time: newTime, date: newDate, pending: true };
     setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? updatedMeal : m));
     try {
-      const success = await updateMealInGAS(updatedMeal);
+      const success = await updateMeal(updatedMeal);
       if (!success) throw new Error("Update failed");
       setMeals(prev => prev.map(m => String(m.uuid) === String(uuid) ? { ...updatedMeal, pending: false } : m));
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (err) {
       setMeals(prevMeals);
       showToast("상태 변경에 실패했습니다. 다시 시도해 주세요.");
     }
-  }, [meals, isAdmin, syncDataWithGAS]);
+  }, [meals, isAdmin, syncData]);
 
   const onDeleteMeal = useCallback(async (uuid: string): Promise<boolean> => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return false; }
@@ -740,9 +740,9 @@ const App: React.FC = () => {
     const prevMeals = [...meals];
     setMeals(p => p.filter(m => String(m.uuid) !== String(uuid)));
     try {
-      const success = await deleteMealFromGAS(uuid);
+      const success = await deleteMeal(uuid);
       if (success) {
-        await syncDataWithGAS(false);
+        await syncData(false);
         return true;
       } else throw new Error("Delete failed");
     } catch (err) {
@@ -750,7 +750,7 @@ const App: React.FC = () => {
       showToast("삭제에 실패했습니다. 다시 시도해 주세요.");
       return false;
     }
-  }, [meals, isAdmin, syncDataWithGAS]);
+  }, [meals, isAdmin, syncData]);
 
   const getIngredientDisplayName = useCallback((meal: MealRecord) => {
     const targetUuid = String(meal.ingredient_uuid || '').trim();
@@ -855,13 +855,13 @@ const App: React.FC = () => {
     try {
       // Execute UPDATE if edit, otherwise INSERT (save)
       const success = isEdit
-        ? await updateDiaryInGAS(newDiary)
-        : await saveDiaryToGAS(newDiary);
+        ? await updateDiary(newDiary)
+        : await saveDiary(newDiary);
 
       if (success) {
         setDiaries(prev => prev.map(d => d.uuid === newDiary.uuid ? { ...newDiary, pending: false } : d));
         showToast(isEdit ? "건강 일기가 수정되었습니다! ✨" : "건강 일기가 저장되었습니다! ✨");
-        await syncDataWithGAS(false);
+        await syncData(false);
       } else {
         throw new Error("Diary persistent operation returned false");
       }
@@ -869,7 +869,7 @@ const App: React.FC = () => {
       setDiaries(prevDiaries);
       showToast("일기 저장에 실패했습니다.");
     }
-  }, [selectedDate, currentDiary, diaries, isAdmin, syncDataWithGAS]);
+  }, [selectedDate, currentDiary, diaries, isAdmin, syncData]);
 
   const onSaveActivity = useCallback(async (activity: ActivityLog) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -882,17 +882,17 @@ const App: React.FC = () => {
     });
     setIsActivityUploadOpen(false);
     try {
-      const success = isUpdate ? await updateActivityInGAS(activity) : await saveActivityToGAS(activity);
+      const success = isUpdate ? await updateActivity(activity) : await saveActivity(activity);
       if (success) {
         setActivities(prev => prev.map(a => a.uuid === activity.uuid ? { ...activity, pending: false } : a));
         showToast(isUpdate ? "활동 기록이 수정되었습니다! 💪" : "활동 기록이 저장되었습니다! 💪");
-        await syncDataWithGAS(false);
+        await syncData(false);
       } else throw new Error("Activity storage failed");
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 저장에 실패했습니다.");
     }
-  }, [activities, isAdmin, syncDataWithGAS]);
+  }, [activities, isAdmin, syncData]);
 
   const onDeleteActivity = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -900,15 +900,15 @@ const App: React.FC = () => {
     setActivities(prev => prev.filter(a => a.uuid !== uuid));
     setIsActivityUploadOpen(false);
     try {
-      const success = await deleteActivityFromGAS(uuid);
+      const success = await deleteActivity(uuid);
       if (!success) throw new Error("Activity deletion failed");
       showToast("활동 기록이 삭제되었습니다.");
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (error) {
       setActivities(prevActivities);
       showToast("활동 기록 삭제에 실패했습니다.");
     }
-  }, [activities, isAdmin, syncDataWithGAS]);
+  }, [activities, isAdmin, syncData]);
 
   const handleToggleBookmark = useCallback(async (uuid: string) => {
     if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
@@ -920,12 +920,12 @@ const App: React.FC = () => {
     try {
       const success = await updateIngredientBookmark(uuid, next);
       if (!success) throw new Error("Bookmark failed");
-      await syncDataWithGAS(false);
+      await syncData(false);
     } catch (err) {
       setIngredients(prevIngredients);
       showToast("즐겨찾기 상태 변경에 실패했습니다.");
     }
-  }, [ingredients, isAdmin, syncDataWithGAS]);
+  }, [ingredients, isAdmin, syncData]);
 
   const handleLogin = (s: boolean) => { if (s) { setIsAdmin(true); safeLocalStorage.setItem('isAdmin', 'true'); } };
   const handleLogout = () => {
@@ -958,7 +958,7 @@ const App: React.FC = () => {
     });
 
     try {
-      const success = await saveAIRecommendationToGAS(newRecommendation);
+      const success = await saveAIRecommendation(newRecommendation);
       if (success) {
         console.log("AI Recommendation saved to DB");
       }
@@ -991,7 +991,7 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs font-black tracking-tight text-white/95">데이터를 동기화하고 있습니다</p>
-              <p className="text-[10px] text-slate-400 font-bold leading-normal">구글 스프레드시트(DB)와 실시간 동기화 중...</p>
+              <p className="text-[10px] text-slate-400 font-bold leading-normal">서버(DB)와 실시간 동기화 중...</p>
             </div>
           </div>
         </div>
@@ -1031,10 +1031,10 @@ const App: React.FC = () => {
             </button>
           )}
           <button
-            onClick={() => syncDataWithGAS(true, 'manual')}
+            onClick={() => syncData(true, 'manual')}
             disabled={isBackgroundSyncing}
             className="bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-full transition-all active:scale-95 shadow-sm border border-white/5 disabled:opacity-80"
-            title="구글 스프레드시트와 데이터 동기화"
+            title="서버와 데이터 동기화"
           >
             <span className="text-[11px] font-black text-white tracking-widest">동기화</span>
           </button>
@@ -1112,20 +1112,20 @@ const App: React.FC = () => {
             onAddIngredient={async (ing) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => [...p, ing]);
-              const success = await saveIngredientToGAS(ing);
-              if (success) await syncDataWithGAS(false);
+              const success = await saveIngredient(ing);
+              if (success) await syncData(false);
             }}
             onUpdateIngredient={async (ing) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => p.map(i => i.uuid === ing.uuid ? ing : i));
-              const success = await updateIngredientInGAS(ing);
-              if (success) await syncDataWithGAS(false);
+              const success = await updateIngredient(ing);
+              if (success) await syncData(false);
             }}
             onDeleteIngredient={async (id) => {
               if (!isAdmin) { alert(TRIAL_MESSAGE); return; }
               setIngredients(p => p.filter(i => i.uuid !== id));
-              const success = await deleteIngredientFromGAS(id);
-              if (success) await syncDataWithGAS(false);
+              const success = await deleteIngredient(id);
+              if (success) await syncData(false);
             }}
             trialMessage={TRIAL_MESSAGE}
           />

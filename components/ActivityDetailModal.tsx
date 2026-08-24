@@ -28,17 +28,6 @@ const ActivityDetailModal: React.FC<Props> = ({ activity, meals, onClose }) => {
         </div>
 
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-          {activity.image_url && (
-            <div className="rounded-2xl overflow-hidden border shadow-inner bg-gray-50">
-              <img 
-                src={activity.image_url} 
-                alt="Activity" 
-                className="w-full h-auto block"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          )}
-
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-orange-50 p-4 rounded-2xl text-center border border-orange-100">
               <p className="text-[10px] font-bold text-orange-400 uppercase mb-1">걸음수</p>

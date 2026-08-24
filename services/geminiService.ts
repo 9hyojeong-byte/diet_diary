@@ -163,65 +163,6 @@ export async function getAIRecommendation(
 }
 
 
-export async function analyzeActivityImage(base64Image: string): Promise<{ steps: number, active_calories: number, total_calories: number } | null> {
-  const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
-
-  if (!apiKey) {
-    console.error("GeminiService: API Key is missing.");
-    return null;
-  }
-
-  try {
-    const ai = new GoogleGenAI({
-      apiKey: apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
-
-    const prompt = `이 이미지는 운동 기록(걸음수, 칼로리 소모량 등)이 포함된 스크린샷이야.
-이미지에서 다음 정보를 찾아줘:
-1. 걸음수 (steps)
-2. 활동 칼로리 (active calories)
-3. 총 칼로리 소모량 (total calories)
-
-결과는 반드시 다음과 같은 JSON 형식으로만 응답해줘. 다른 설명은 하지 마.
-{
-  "steps": 숫자,
-  "active_calories": 숫자,
-  "total_calories": 숫자
-}`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: [
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64Image.split(',')[1] || base64Image
-          }
-        },
-        { text: prompt }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    const result = JSON.parse(response.text || '{}');
-    return {
-      steps: Number(result.steps) || 0,
-      active_calories: Number(result.active_calories) || 0,
-      total_calories: Number(result.total_calories) || 0
-    };
-  } catch (error) {
-    console.error("Gemini Activity Analysis Error:", error);
-    return null;
-  }
-}
-
 export async function analyzeMealDescription(description: string): Promise<{ name: string, carbs: number, protein: number, fat: number } | null> {
   const apiKey = import.meta.env.VITE_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
 

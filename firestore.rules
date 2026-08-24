@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// 개인용 단일 사용자 앱: 별도 로그인 없이 앱 번들에 담긴 Firebase 설정값으로
+// 누구나 읽기/쓰기가 가능합니다. 기존 GAS Web App도 동일한 수준(비인증 공개 접근)이었으므로
+// 보안 수준은 유지됩니다. 더 강한 보호가 필요하면 Firebase Auth를 추가하고
+// request.auth.uid == '<내 UID>' 조건으로 좁히세요.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -85,7 +85,6 @@ export interface ActivityLog {
   tdee_with_tef?: number;
   calorie_deficit?: number;
   bmr?: number; // Persisted BMR value at the time of log creation
-  image_url?: string;
   created_at?: string;
   pending?: boolean;
 }

@@ -1,7 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActivityLog, MealRecord, MealStatus } from '../types';
-import { analyzeActivityImage } from '../services/geminiService';
 import { generateUUID } from '../utils';
 
 interface Props {
@@ -32,16 +31,12 @@ const ActivityUploadForm: React.FC<Props> = ({
   const [activeCals, setActiveCals] = useState(existingActivity?.active_calories.toString() || '');
   const [extraActiveCals, setExtraActiveCals] = useState('');
   const [totalCals, setTotalCals] = useState(existingActivity?.total_calories.toString() || '');
-  const [imageUrl, setImageUrl] = useState<string | null>(existingActivity?.image_url || null);
 
   const [tef, setTef] = useState<number | null>(existingActivity?.tef ? Number(existingActivity.tef) : null);
   const [tdee, setTdee] = useState<number | null>(existingActivity?.tdee ? Number(existingActivity.tdee) : null);
   const [showTdeeCalc, setShowTdeeCalc] = useState<boolean>(!!existingActivity?.tdee);
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get KST Today's string representation
   const getTodayKST = (): string => {
@@ -97,32 +92,6 @@ const ActivityUploadForm: React.FC<Props> = ({
     }
   }, [date, totalCals, activeCals, extraActiveCals, meals]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
-      setImageUrl(base64);
-
-      setIsAnalyzing(true);
-      try {
-        const result = await analyzeActivityImage(base64);
-        if (result) {
-          setSteps(result.steps.toString());
-          setActiveCals(result.active_calories.toString());
-          setTotalCals(result.total_calories.toString());
-        }
-      } catch (err) {
-        console.error("Analysis failed", err);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleSave = async () => {
     if (!date) return;
 
@@ -154,7 +123,6 @@ const ActivityUploadForm: React.FC<Props> = ({
         tdee_with_tef: tdeeWithTefVal,
         calorie_deficit: calorieDeficitVal,
         bmr: bmr,
-        image_url: imageUrl || undefined,
         created_at: existingActivity?.created_at || new Date().toISOString()
       });
     } finally {
@@ -178,7 +146,6 @@ const ActivityUploadForm: React.FC<Props> = ({
 
         <div className="p-6 bg-indigo-600 text-white">
           <h3 className="text-xl font-black">운동 기록 업로드</h3>
-          <p className="text-xs opacity-70 font-medium">이미지를 올리면 AI가 데이터를 분석해드려요!</p>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
@@ -329,67 +296,6 @@ const ActivityUploadForm: React.FC<Props> = ({
             )}
           </div>
 
-          <div className="space-y-3">
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-
-            {!imageUrl ? (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isAnalyzing}
-                className="w-full py-8 rounded-2xl border-2 border-dashed bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 transition-all flex flex-col items-center justify-center space-y-2"
-              >
-                {isAnalyzing ? (
-                  <div className="flex flex-col items-center py-2">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2" />
-                    <span className="text-xs font-bold">AI가 이미지를 분석 중입니다...</span>
-                  </div>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="font-black text-sm">활동 스크린샷 업로드</span>
-                  </>
-                )}
-              </button>
-            ) : (
-              <div className="relative rounded-2xl overflow-hidden border shadow-inner bg-gray-50 mx-auto max-w-[300px] group">
-                <img src={imageUrl} alt="Preview" className="w-full h-auto block" />
-
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isAnalyzing}
-                    className="px-3 py-1.5 bg-white text-indigo-600 text-xs font-black rounded-full shadow-lg active:scale-95 transition-all"
-                  >
-                    이미지 변경
-                  </button>
-                  <button
-                    onClick={() => setImageUrl(null)}
-                    className="p-1.5 bg-red-500 text-white rounded-full shadow-lg active:scale-95 transition-all"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-
-                {isAnalyzing && (
-                  <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2" />
-                    <span className="text-[10px] font-bold text-indigo-600">분석 중...</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           <div className="flex space-x-3 pt-4">
             {existingActivity && (
               <button
@@ -411,7 +317,7 @@ const ActivityUploadForm: React.FC<Props> = ({
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || isAnalyzing}
+              disabled={isSaving}
               className={`flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center ${isSaving ? 'opacity-70' : ''}`}
             >
               {isSaving ? (
