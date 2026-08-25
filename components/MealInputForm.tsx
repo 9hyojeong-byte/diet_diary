@@ -388,7 +388,7 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
 
               {searchTerm.trim() === '' ? (
                 <div className="space-y-5">
-                  {yesterdayMeals.length > 0 && (
+                  {false && yesterdayMeals.length > 0 && (
                     <div className="space-y-3 animate-in slide-in-from-top-2">
                       <div className="flex justify-between items-center px-1">
                         <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center">
