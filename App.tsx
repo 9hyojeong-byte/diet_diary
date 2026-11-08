@@ -1102,6 +1102,7 @@ const App: React.FC = () => {
               targets={nutrientTargets}
               onUpdateTargets={onUpdateNutrientTargets}
               isAdmin={isAdmin}
+              calorieDeficit={currentActivity?.calorie_deficit}
             />
 
             <div className="space-y-4">

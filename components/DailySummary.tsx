@@ -8,9 +8,10 @@ interface Props {
   targets: NutrientTargets;
   onUpdateTargets: (targets: NutrientTargets) => void;
   isAdmin: boolean;
+  calorieDeficit?: number | null;
 }
 
-const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onUpdateTargets, isAdmin }) => {
+const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onUpdateTargets, isAdmin, calorieDeficit }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState<NutrientTargets>(targets);
 
@@ -101,6 +102,15 @@ const DailySummaryView: React.FC<Props> = ({ summary, selectedDate, targets, onU
             )}
           </div>
         </div>
+        {typeof calorieDeficit === 'number' && !isNaN(calorieDeficit) && !isEditing && (
+          <div className="text-right shrink-0 ml-2">
+            <p className="text-[10px] font-black text-rose-400 whitespace-nowrap">📉 예상 결손</p>
+            <p className="text-lg font-black text-rose-600 whitespace-nowrap">
+              {Math.round(calorieDeficit).toLocaleString()}
+              <span className="text-[10px] font-bold ml-0.5">kcal</span>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="relative w-full bg-gray-100 h-3 rounded-full overflow-hidden">
