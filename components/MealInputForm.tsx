@@ -155,10 +155,32 @@ const MealInputForm: React.FC<Props> = ({ isOpen, onClose, selectedDate, prefill
     }
   }, [ingredients]);
 
+  // 식재료별로 가장 최근에 먹은(ACTUAL) 일시를 "YYYY-MM-DD HH:mm"으로 기록해 둡니다. (문자열 비교로 최신순 정렬 가능)
+  const lastUsedMap = useMemo(() => {
+    const map = new Map<string, string>();
+    meals.forEach(m => {
+      if (m.status !== MealStatus.ACTUAL) return;
+      const key = String(m.ingredient_uuid || '').trim();
+      if (!key || key === 'direct-entry') return;
+      const stamp = `${String(m.date).split('T')[0]} ${formatTime(m.time)}`;
+      const prev = map.get(key);
+      if (!prev || stamp > prev) map.set(key, stamp);
+    });
+    return map;
+  }, [meals]);
+
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    return ingredients.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 20);
-  }, [ingredients, searchTerm]);
+    const term = searchTerm.toLowerCase();
+    return ingredients
+      .filter(i => i.name.toLowerCase().includes(term))
+      .sort((a, b) => {
+        const la = lastUsedMap.get(String(a.uuid).trim()) || '';
+        const lb = lastUsedMap.get(String(b.uuid).trim()) || '';
+        return lb.localeCompare(la); // 최근에 먹은 순, 미사용은 맨 뒤(기존 순서 유지)
+      })
+      .slice(0, 20);
+  }, [ingredients, searchTerm, lastUsedMap]);
 
   const bookmarks = useMemo(() => {
     return ingredients.filter(i => i.is_bookmarked).slice(0, 10);
